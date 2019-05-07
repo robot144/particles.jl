@@ -35,7 +35,8 @@ function run_simulation(d)
 
    if d["plot_maps"]
       global fig1=d["plot_maps_background"](d)
-      scatter!(fig1,p[1,:],p[2,:],legend=false)
+      #scatter!(fig1,p[1,:],p[2,:],legend=false)
+      d["plot_maps_func"](fig1,d,p)
       # TODO possibly label=[string(t)])
       gui(fig1)
    end
@@ -50,19 +51,35 @@ function run_simulation(d)
       simulate!(p,t,t_stop,d)
       t=t_stop
       if d["plot_maps"]
-         scatter!(fig1,p[1,:],p[2,:])
+         #scatter!(fig1,p[1,:],p[2,:])
+         d["plot_maps_func"](fig1,d,p)
          #sleep(1)
          gui(fig1)
       end
    end
    
    #wait for user 
-   if !isinteractive() #wait for user to kill fina plot
+   if !isinteractive() #wait for user to kill final plot
       println("Type [enter] to finish script")
       readline()
    end
 end
 
+function index(var,vars)
+   return indexin([var],vars)[1]
+end
+
+function plot_maps_xy(fig,d,p)
+   x_index=index("x",d["variables"])
+   y_index=index("y",d["variables"])
+   scatter!(fig,p[x_index,:],p[y_index,:],markercolor=[:black],legend=false)
+end
+
+function plot_maps_xz(fig,d,p)
+   x_index=index("x",d["variables"])
+   z_index=index("z",d["variables"])
+   scatter!(fig,p[x_index,:],p[z_index,:],legend=false)
+end
 
 function default_userdata()
    d=Dict()
@@ -70,8 +87,9 @@ function default_userdata()
    d["tstart"]=0.0
    d["tend"]=1.0
    d["plot_maps"]=true
-   d["plot_maps_size"]=(700,700)
+   d["plot_maps_size"]=(1000,1000)
    d["plot_maps_times"]=[]
+   d["plot_maps_func"]=plot_maps_xy
    return d
 end
 
