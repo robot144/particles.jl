@@ -34,6 +34,7 @@ function run_simulation(d)
    Plots.default(:size,d["plot_maps_size"])
 
    if d["plot_maps"]
+      Plots.default(:size,d["plot_maps_size"])
       global fig1=d["plot_maps_background"](d)
       #scatter!(fig1,p[1,:],p[2,:],legend=false)
       d["plot_maps_func"](fig1,d,p)
