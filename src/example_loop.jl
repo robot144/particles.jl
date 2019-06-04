@@ -21,7 +21,12 @@ d["particles"]=p #initial values
 d["dt"]=0.01
 d["tstart"]=0.0
 d["tend"]=2.5
-d["plot_map_times"]=collect(0.1:0.5:2.5)
+#write to netcdf
+d["write_maps_times"]=collect(0.0:0.1:2.5)
+d["write_maps"]=true
+d["write_maps_filename"]="output_loop.nc"
+#plot to screen 
+d["plot_maps_times"]=collect(0.0:0.5:2.5)
 d["plot_maps"]=true
 
 # forcing currents stream (used only for plotting here) , u and v
