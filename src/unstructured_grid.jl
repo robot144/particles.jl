@@ -68,6 +68,18 @@ function add_grid!(interp::Interpolator,grid::Grid)
     push!(interp.grids,grid)
 end
 
+function get_bbox(interp::Interpolator)
+   bbox=copy(interp.grids[1].bbox)
+   for counter=2:length(interp.grids)
+      temp_bbox=interp.grids[counter].bbox
+      bbox[1]=min(bbox[1],temp_bbox[1]) #xmin
+      bbox[2]=max(bbox[2],temp_bbox[2]) #xmax
+      bbox[3]=min(bbox[3],temp_bbox[3]) #ymin
+      bbox[4]=max(bbox[4],temp_bbox[4]) #ymax
+   end
+   return bbox
+end
+
 function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
    #check for mutiple or single domain
    if(typeof(invalues).parameters[1] <: Number)

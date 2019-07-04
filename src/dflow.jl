@@ -3,10 +3,7 @@
 
 
 using NetCDF
-#using Plots
 using Dates
-#Plots.default(:size,(1600,200))
-
 include("unstructured_grid.jl")
 
 
@@ -21,13 +18,19 @@ end
 
 function load_dflow_grid(map,nmin=50,spherical=true)
    interp=Interpolator()
-   # mesh2d_face_nodes [4,:]
-   #lat1=in1.vars["mesh2d_fourier001_min"]
-   #xnodes1=in1.vars["NetNode_x"][:]
    for i=1:length(map)
-      edges_temp=map[i].vars["NetElemNode"][:,:]
-      xnodes_temp=map[i].vars["NetNode_x"][:]
-      ynodes_temp=map[i].vars["NetNode_y"][:]
+      if haskey(map[i].vars,"NetElemNode")
+         edges_temp=map[i].vars["NetElemNode"][:,:]
+      else
+         edges_temp=map[i].vars["mesh2d_face_nodes"][:,:]
+      end
+      if haskey(map[i].vars,"NetNode_x")
+         xnodes_temp=map[i].vars["NetNode_x"][:]
+         ynodes_temp=map[i].vars["NetNode_y"][:]
+      else
+         xnodes_temp=map[i].vars["mesh2d_node_x"][:]
+         ynodes_temp=map[i].vars["mesh2d_node_y"][:]
+      end
       @printf("- index computation\n")
       @time grid_temp=Grid(xnodes_temp,ynodes_temp,edges_temp,nmin,spherical)
       #dump(grid_temp)
@@ -90,10 +93,18 @@ function get_times(map,reftime::DateTime)
    else
       error("Invalid time-step unit in map-file.")
    end
-   t_start = (0.001*Dates.value(reftime-t0))+time_relative[1]*dt_seconds
-   t_step  = (time_relative[2]-time_relative[1])*dt_seconds
-   t_stop  = (0.001*Dates.value(reftime-t0))+time_relative[end]*dt_seconds
-   times = t_start:t_step:t_stop
+   if ((time_relative[2]-time_relative[1])>(1.1*(time_relative[3]-time_relative[2])))
+      #check for dummy initial field
+      t_start = (0.001*Dates.value(reftime-t0))+time_relative[2]*dt_seconds
+      t_step  = (time_relative[3]-time_relative[2])*dt_seconds
+      t_stop  = (0.001*Dates.value(reftime-t0))+time_relative[end]*dt_seconds
+      times = t_start:t_step:t_stop
+   else
+      t_start = (0.001*Dates.value(reftime-t0))+time_relative[1]*dt_seconds
+      t_step  = (time_relative[2]-time_relative[1])*dt_seconds
+      t_stop  = (0.001*Dates.value(reftime-t0))+time_relative[end]*dt_seconds
+      times = t_start:t_step:t_stop
+   end
    return times
 end
 
@@ -135,10 +146,16 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
    u_cache=Array{Any,1}(undef,3)
    v_cache=Array{Any,1}(undef,3)
    initialized=false
+   ucx="ucx"
+   ucy="ucy"
+   if haskey(dflow_map[1].vars,"mesh2d_ucx")
+      ucx="mesh2d_ucx"
+      ucy="mesh2d_ucy"
+   end
    for ti=1:3
       time_cache[ti]=times_cache[ti]
-      u_cache[ti]=load_nc_map_slice(dflow_map,"ucx",ti)
-      v_cache[ti]=load_nc_map_slice(dflow_map,"ucy",ti)
+      u_cache[ti]=load_nc_map_slice(dflow_map,ucx,ti)
+      v_cache[ti]=load_nc_map_slice(dflow_map,ucy,ti)
    end
    time_cache_index=3 #index of last cached field in list of all available times
    """
@@ -146,16 +163,22 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
        Refresh the cached fields if needed.
    """
    function update_cache(t)
+      ucx="ucx"
+      ucy="ucy"
+      if haskey(dflow_map[1].vars,"mesh2d_ucx")
+         ucx="mesh2d_ucx"
+         ucy="mesh2d_ucy"
+      end
       if (t>=time_cache[1])&&(t<=time_cache[3])
          println("cache is okay")
       elseif (t>=time_cache[2])&&(t<=times_cache[time_cache_index+1]) 
          println("advance to next time")
          u_cache[1]=u_cache[2]
          u_cache[2]=u_cache[3]
-         u_cache[3]=load_nc_map_slice(dflow_map,"ucx",time_cache_index+1)
+         u_cache[3]=load_nc_map_slice(dflow_map,ucx,time_cache_index+1)
          v_cache[1]=v_cache[2]
          v_cache[2]=v_cache[3]
-         v_cache[3]=load_nc_map_slice(dflow_map,"ucy",time_cache_index+1)
+         v_cache[3]=load_nc_map_slice(dflow_map,ucy,time_cache_index+1)
          time_cache[1]=time_cache[2]
          time_cache[2]=time_cache[3]
          time_cache[3]=times_cache[time_cache_index+1]
@@ -168,12 +191,12 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
          time_cache[1]=times_cache[ti]
          time_cache[2]=times_cache[ti+1]
          time_cache[3]=times_cache[ti+2]
-         u_cache[1]=load_nc_map_slice(dflow_map,"ucx",ti)
-         u_cache[2]=load_nc_map_slice(dflow_map,"ucx",ti+1)
-         u_cache[3]=load_nc_map_slice(dflow_map,"ucx",ti+2)
-         v_cache[1]=load_nc_map_slice(dflow_map,"ucy",ti)
-         v_cache[2]=load_nc_map_slice(dflow_map,"ucy",ti+1)
-         v_cache[3]=load_nc_map_slice(dflow_map,"ucy",ti+2)
+         u_cache[1]=load_nc_map_slice(dflow_map,ucx,ti)
+         u_cache[2]=load_nc_map_slice(dflow_map,ucx,ti+1)
+         u_cache[3]=load_nc_map_slice(dflow_map,ucx,ti+2)
+         v_cache[1]=load_nc_map_slice(dflow_map,ucy,ti)
+         v_cache[2]=load_nc_map_slice(dflow_map,ucy,ti+1)
+         v_cache[3]=load_nc_map_slice(dflow_map,ucy,ti+2)
          time_cache_index=ti+2
       end
       println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
@@ -201,7 +224,7 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       for ti=1:3
          value+=apply_index(ind,u_cache[ti],dumval_cache)
       end
-      value/3.0
+      value
    end
    #flow in y direction (for now has to be called v)
    function v(x,y,z,t)
@@ -212,7 +235,7 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       for ti=1:3
          value+=apply_index(ind,v_cache[ti],dumval_cache)
       end
-      value/3.0
+      value
    end
    return (u,v)
 end
@@ -220,7 +243,7 @@ end
 # test
 #
 
-function test()
+function test1()
    #init
    dflow_map=load_nc_info("../test_data",r"estuary_...._map.nc")
    interp=load_dflow_grid(dflow_map,50,false)
@@ -242,3 +265,27 @@ function test()
    u,v=initialize_interpolation(dflow_map,interp,t0)
    u(100.0,100.0,0.0,0.0)
 end
+
+function test2()
+   #init
+   dflow_map=load_nc_info("../test_data",r"DCSM-FM_0_5nm_...._map.nc")
+   interp=load_dflow_grid(dflow_map,50,false)
+   ##interpolate a field to a regular grid
+   #sealevel=load_nc_map_slice(dflow_map,"mesh2d_s1",10)
+   #xpoints=collect(range(-15.0,stop=13.0,length=1200))
+   #ypoints=collect(range(43.0,stop=64.0,length=1000))
+   #sealevel_interp=interpolate(interp,xpoints,ypoints,sealevel)
+   #Plots.default(:size,[1200,1000])
+   #heatmap(xpoints,ypoints,sealevel_interp', clims=(-2.0,2.0))
+
+   # u,v interpolation functions
+   t0=get_reftime(dflow_map)
+   u,v=initialize_interpolation(dflow_map,interp,t0)
+   for istep=1:5
+      u_value=u(1.0,51.0,0.0,864000.0+3600.0*istep)
+      println("$(istep) u=$(u_value)")
+   end
+end
+
+#test1()
+#test2()

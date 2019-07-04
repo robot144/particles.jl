@@ -214,7 +214,7 @@ function default_userdata()
    d["dumval"]=9999.0
    #plotting to screen
    d["plot_maps"]=false
-   d["plot_maps_size"]=(1000,1000)
+   d["plot_maps_size"]=(1200,1000)
    d["plot_maps_times"]=[]
    d["plot_maps_func"]=plot_maps_xy
    #results that are kept in memmory
