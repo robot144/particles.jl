@@ -9,8 +9,10 @@ Plots.default(:size,[width,height])
 using NetCDF
 include("wms_client.jl") 
 
-ncfilename="output_dflow_2d_dcsm.nc"
-fig_prefix="fig_dflow_2dcsm"
+#ncfilename="output_dflow_2d_dcsm.nc"
+ncfilename="output_dflow_2d_dcsm2019.nc"
+#fig_prefix="fig_dflow_2dcsm"
+fig_prefix="fig_dflow_2dcsm2019"
 
 ncfile=ncinfo(ncfilename)
 lon=ncfile["lon"][:,:]

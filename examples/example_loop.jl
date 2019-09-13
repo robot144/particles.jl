@@ -1,7 +1,8 @@
 # Test case with simple looping flow field
 # streamfunction is given by s=sin(pi*x)*sin(pi*y)
 
-include("particles.jl") 
+using Particles
+#include("particles.jl") 
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults

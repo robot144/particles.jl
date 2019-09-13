@@ -1,12 +1,17 @@
-# Interact with dflow files
+# Interact with dflow netcdf output map files
 #
-
 
 using NetCDF
 using Dates
-include("unstructured_grid.jl")
+#include("unstructured_grid.jl")
+
+const debuglevel=1 #0-nothing, larger more output
 
 
+"""
+   map=load_nc_info(path,filename_regex)
+Load meta-data of all map-files, i.e. for all domains in the filename_regex.
+"""
 function load_nc_info(path,filename_regex::Regex)
    map=[]
    filenames=filter(x->(match(filename_regex,x)!=nothing), readdir(path))
@@ -16,8 +21,15 @@ function load_nc_info(path,filename_regex::Regex)
    return map
 end
 
+"""
+   interp=load_dflow_grid(map,nmin=50,spherical=true)
+Create spatial index for a dflow netcdf map file.
+map should contain an array of netcdf info's as created eg by:
+load_nc_info.
+"""
 function load_dflow_grid(map,nmin=50,spherical=true)
    interp=Interpolator()
+   println("compute index:")
    for i=1:length(map)
       if haskey(map[i].vars,"NetElemNode")
          edges_temp=map[i].vars["NetElemNode"][:,:]
@@ -31,14 +43,18 @@ function load_dflow_grid(map,nmin=50,spherical=true)
          xnodes_temp=map[i].vars["mesh2d_node_x"][:]
          ynodes_temp=map[i].vars["mesh2d_node_y"][:]
       end
-      @printf("- index computation\n")
-      @time grid_temp=Grid(xnodes_temp,ynodes_temp,edges_temp,nmin,spherical)
+      println("- $(map[i].name)")
+      grid_temp=Grid(xnodes_temp,ynodes_temp,edges_temp,nmin,spherical)
       #dump(grid_temp)
       add_grid!(interp,grid_temp)
    end
    return interp
 end
 
+"""
+   depth = load_nc_var(map,"depth")
+Load data of a variable foreach domain. The variable should be be time-independent.
+"""
 function load_nc_var(map,varname)
    result=[]
    for i=1:length(map)
@@ -47,6 +63,10 @@ function load_nc_var(map,varname)
    return result
 end
 
+"""
+   waterlevel = load_nc_map_slice(map,"s1",1)
+Load data for a time-dependent variable for a specific time and for all domains.
+"""
 function load_nc_map_slice(map,varname,itime)
    result=[]
    for i=1:length(map)
@@ -55,6 +75,11 @@ function load_nc_map_slice(map,varname,itime)
    return result
 end
 
+"""
+   cell_index = find_index(interp, xpoint, ypoint)
+Find the domain and index of the cell within that domain, eg the result [2,1234]
+indicates the cell 1234 in the snd domain.
+"""
 function find_index(interp::Interpolator,xpoint,ypoint)
    indices=[-1 -1]
    for i=1:length(interp.grids)
@@ -68,6 +93,12 @@ function find_index(interp::Interpolator,xpoint,ypoint)
    return indices
 end
 
+"""
+   waterlevel_at_point = apply_index(index,map_slice,9999.0)
+Get the number at domain and index (given by index). The index is often the result of 
+the function find_index. If the cell index is [-1,-1] then the point is considered to
+be outside the area covered by the cells, eg on land, and then a default value is returned.
+"""
 function apply_index(index,map_slice,default_value=0.0)
    if index[1]>0
       return map_slice[index[1]][index[2]]
@@ -76,6 +107,14 @@ function apply_index(index,map_slice,default_value=0.0)
    end
 end
 
+"""
+   times=get_times(map,Dates.DateTime(2019,1,1))
+
+Get available times im netcdf map files as a range in seconds, eg 0.0:3600.0:7200.0
+The reftime (second arg) is a Dates.DateTime can be used to change the reftime to something
+convenient. With reftime=get_reftime(map) you can find the time of the first map, which is often
+a nice default.
+"""
 function get_times(map,reftime::DateTime)
    time_relative=map[1].vars["time"]
    units=time_relative.atts["units"]
@@ -95,19 +134,25 @@ function get_times(map,reftime::DateTime)
    end
    if ((time_relative[2]-time_relative[1])>(1.1*(time_relative[3]-time_relative[2])))
       #check for dummy initial field
-      t_start = (0.001*Dates.value(reftime-t0))+time_relative[2]*dt_seconds
+      t_start = (0.001*Dates.value(t0-reftime))+time_relative[2]*dt_seconds
       t_step  = (time_relative[3]-time_relative[2])*dt_seconds
-      t_stop  = (0.001*Dates.value(reftime-t0))+time_relative[end]*dt_seconds
+      t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
       times = t_start:t_step:t_stop
    else
-      t_start = (0.001*Dates.value(reftime-t0))+time_relative[1]*dt_seconds
+      t_start = (0.001*Dates.value(t0-reftime))+time_relative[1]*dt_seconds
       t_step  = (time_relative[2]-time_relative[1])*dt_seconds
-      t_stop  = (0.001*Dates.value(reftime-t0))+time_relative[end]*dt_seconds
+      t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
       times = t_start:t_step:t_stop
    end
    return times
 end
 
+"""
+   t_ref = get_reftime(map)
+Read the reference time from the attributes of time in the netcdf file. 
+Times are described by a reference time (DateTime type) and the number of hours
+relative to this t_ref.
+"""
 function get_reftime(map)
    time_relative=map[1].vars["time"]
    units=time_relative.atts["units"]
@@ -131,11 +176,23 @@ function get_reftime(map)
    return t0 + Dates.Second(relative_days_in_seconds)
 end
 
+"""
+   t = as_DateTime(reftime,relative_time)
+Convert a reftime (DateTime) and relative_time (Float64 with hours) relative to this.
+Returns a DateTime type.
+"""
 function as_DateTime(reftime::DateTime,relative_time)
    reftime+Float64(relative_time)*Dates.Second(1)
 end
 
+"""
+   u,v=initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=-9999.0)
+
+Create interpolation functions for x and y (lon and lat) directions of the flow. 
+The reftime can be chosen freely independent of the reftime in the input files.
+""" 
 function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=-9999.0)
+   println("initialize caching for $(dflow_map[1].name) ...")
    map_cache=dflow_map
    interp_cache=interp
    dumval_cache=dumval
@@ -170,9 +227,12 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
          ucy="mesh2d_ucy"
       end
       if (t>=time_cache[1])&&(t<=time_cache[3])
-         println("cache is okay")
+         (debuglevel>=2) && println("cache is okay")
       elseif (t>=time_cache[2])&&(t<=times_cache[time_cache_index+1]) 
-         println("advance to next time")
+         if(t>times_cache[end])
+            error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
+         end
+         (debuglevel>=2) && println("advance to next time")
          u_cache[1]=u_cache[2]
          u_cache[2]=u_cache[3]
          u_cache[3]=load_nc_map_slice(dflow_map,ucx,time_cache_index+1)
@@ -184,10 +244,16 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
          time_cache[3]=times_cache[time_cache_index+1]
          time_cache_index+=1
       else #complete refresh of cache
-         println("refresh cache")
+         if(t>times_cache[end])
+            error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
+         end
+         if(t<times_cache[1])
+            error("Trying to access before first map t=$(t) < $(times_cache[0])")
+         end
+         (debuglevel>=2) && println("refresh cache")
          ti=findfirst(tt->tt>=t,times_cache)
-         println("ti=$(ti)")
-         println("$(times_cache)")
+         (debuglevel>=4) && println("ti=$(ti), t=$(t)")
+         (debuglevel>=4) && println("$(times_cache)")
          time_cache[1]=times_cache[ti]
          time_cache[2]=times_cache[ti+1]
          time_cache[3]=times_cache[ti+2]
@@ -199,7 +265,7 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
          v_cache[3]=load_nc_map_slice(dflow_map,ucy,ti+2)
          time_cache_index=ti+2
       end
-      println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+      (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
    end
    """
        (w1,w2,w3) = weights(t)
@@ -239,53 +305,3 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
    end
    return (u,v)
 end
-#
-# test
-#
-
-function test1()
-   #init
-   dflow_map=load_nc_info("../test_data",r"estuary_...._map.nc")
-   interp=load_dflow_grid(dflow_map,50,false)
-   
-   #interpolate a field to a regular grid
-   sealevel=load_nc_map_slice(dflow_map,"s1",10)
-   u_velocity=load_nc_map_slice(dflow_map,"ucx",10)
-   xpoints=collect(range(0.,stop=100000.,length=300))
-   ypoints=collect(range(0.,stop=500.,length=100))
-   sealevel_interp=interpolate(interp,xpoints,ypoints,sealevel)
-   u_velocity_interp=interpolate(interp,xpoints,ypoints,u_velocity)
-   #heatmap(xpoints,ypoints,u_velocity_interp')
-   # interpolate for one point only
-   ind=find_index(interp,10000.0,200.0)
-   ux=apply_index(ind,u_velocity,-9999.)
-   
-   # u,v interpolation functions
-   t0=get_reftime(dflow_map)
-   u,v=initialize_interpolation(dflow_map,interp,t0)
-   u(100.0,100.0,0.0,0.0)
-end
-
-function test2()
-   #init
-   dflow_map=load_nc_info("../test_data",r"DCSM-FM_0_5nm_...._map.nc")
-   interp=load_dflow_grid(dflow_map,50,false)
-   ##interpolate a field to a regular grid
-   #sealevel=load_nc_map_slice(dflow_map,"mesh2d_s1",10)
-   #xpoints=collect(range(-15.0,stop=13.0,length=1200))
-   #ypoints=collect(range(43.0,stop=64.0,length=1000))
-   #sealevel_interp=interpolate(interp,xpoints,ypoints,sealevel)
-   #Plots.default(:size,[1200,1000])
-   #heatmap(xpoints,ypoints,sealevel_interp', clims=(-2.0,2.0))
-
-   # u,v interpolation functions
-   t0=get_reftime(dflow_map)
-   u,v=initialize_interpolation(dflow_map,interp,t0)
-   for istep=1:5
-      u_value=u(1.0,51.0,0.0,864000.0+3600.0*istep)
-      println("$(istep) u=$(u_value)")
-   end
-end
-
-#test1()
-#test2()

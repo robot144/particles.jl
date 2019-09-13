@@ -4,7 +4,8 @@ using Base64
 using Dates
 using Plots
 using FileIO
-using TestImages
+using ImageMagick
+#using TestImages
 
 """
 Info about some WMS servers. Some of the info could be collected using the GetCapabilities request
@@ -149,42 +150,7 @@ bbox contains xmin ymin xmax ymax
 """
 function plot_image(image,boundingbox)
    bbox=boundingbox
-   plot([bbox[1], bbox[3]], [bbox[2], bbox[4]], image[end:-1:1, :], yflip = false)
+   f=plot([bbox[1], bbox[3]], [bbox[2], bbox[4]], image[end:-1:1, :], yflip = false)
+   return f
 end
 
-#
-# testing
-#
-function test1()
-   width=1200
-   height=1000
-   Plots.default(:size,[width,height])
-   emodnet_server=WmsServer("emodnet-bathymetry")
-   bbox=[0.0,49.0,9.0,55.0]
-   img=get_map(emodnet_server,bbox)
-   plot_image(img,bbox)
- end
-   
-function test2()
-   width=1200
-   height=1000
-   Plots.default(:size,[width,height])
-   osm_server=WmsServer("open-streetmap")
-   bbox=[0.0,49.0,9.0,55.0]
-   img=get_map(emodnet_server,bbox,width,height)
-   plot_image(img,bbox)
- end
-   
-function test3()
-   width=2000
-   height=1000
-   Plots.default(:size,[width,height])
-   gebco_server=WmsServer("gebco")
-   bbox=[-180.0,-90.0,180.0,90.0]
-   img=get_map(gebco_server,bbox,width,height)
-   plot_image(img,bbox)
- end
-
- #test1()
- #test2()
- #test3()

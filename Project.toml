@@ -1,0 +1,15 @@
+name = "Particles"
+uuid = "9b8f9cb0-d3d2-11e9-0098-050335538f81"
+authors = ["robot144 <martin@verlaan.info>"]
+version = "0.1.0"
+
+[deps]
+Base64 = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+FileIO = "5789e2e9-d7fb-5bc7-8068-2c6fae9b9549"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+ImageMagick = "6218d12a-5da1-5696-b52f-db25d2ecc6d1"
+NetCDF = "30363a11-5582-574a-97bb-aa9a979735b9"
+Plots = "91a5bcdd-55d7-5caf-9e0b-520d859cae80"
+Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"

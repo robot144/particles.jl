@@ -5,6 +5,9 @@
 using Plots
 using StaticArrays
 using Dates
+using Printf
+
+const debug_level=2
 
 """
    t_next=simulate!(p,t_now,t_stop,d)
@@ -20,7 +23,7 @@ function simulate!(p,t,t_stop,d)
    ds=@MVector zeros(length(variables))
    s=@MVector zeros(length(variables))
    while(t<t_stop)
-      #println("... t=$(t) < $(t_stop)")
+      (debug_level>=2) && println("... t=$(t) < $(t_stop)")
       for i=1:n
          s[:]=p[:,i]
          f!(ds,s,t,i,d)
@@ -44,41 +47,79 @@ function run_simulation(d)
    nvars=length(vars)
    Plots.default(:size,d["plot_maps_size"])
 
+   #show inputs
+   println("configuration")
+   display(d)
+
+   #simulation timespan
+   tstart=d["tstart"]
+   t=tstart
+   tend=d["tend"]
+   tref=d["reftime"]
+
+   #initialize outputs
+   target_times=Float64[]
    if d["plot_maps"]
+      #init timing
+      plot_maps_times=d["plot_maps_times"]
+      target_times=sort(union(plot_maps_times,target_times))
+      print("plotting output at t=")
+      print_times(tref,plot_maps_times)
+      #init plots
       Plots.default(:size,d["plot_maps_size"])
       global fig1=d["plot_maps_background"](d)
       #scatter!(fig1,p[1,:],p[2,:],legend=false)
       d["plot_maps_func"](fig1,d,p)
       # TODO possibly label=[string(t)])
       gui(fig1)
+      #check outputfolder
+      plot_maps_folder=d["plot_maps_folder"]
+      length(plot_maps_folder)>0 || error("empty plot_maps_folder")
+      if isdir(plot_maps_folder)
+         println("Removing existing output in folder $(plot_maps_folder)")
+	 rm(plot_maps_folder,recursive=true)
+      end
+      mkdir(plot_maps_folder)
    end
    if d["write_maps"]
+      write_maps_times=d["write_maps_times"]
+      target_times=sort(union(write_maps_times,target_times))
+      print("writing output to netcdf at t")
+      print_times(tref,write_maps_times)
       (nc_out,ncvars)=initialize_netcdf_output(d)
    end
    
-   t=d["tstart"]
-   tend=d["tend"]
-   plot_maps_times=d["plot_maps_times"]
-   write_maps_times=d["write_maps_times"]
-   #break up the simulation in chunks that can run without producing output
-   target_times=sort(union(plot_maps_times,write_maps_times))
+   #if the end time of the simulation is after the last output request
+   #then still simulate until end times. TODO This is debatable.
    if((length(target_times)==0) || (target_times[end]<tend))
 	push!(target_times,tend)
    end
+   #remove output requests outside the simulation time-span
    if target_times[end]>tend
-      temp=ssort(union(target_times,tend))
+      temp=sort(union(target_times,tend))
       i_last=findlast(x->x<=tend,temp)
       target_times=temp[1:i_last]
    end
+   print("interupt simulation for output at t=")
+   print_times(tref,target_times)
+   println("Simulation from time $(t) s to $(tend) s since $(tref) since $(tref)")
+   
    # simulate in pieces until next output-action
    for t_stop=target_times
+      t_abs=tref+Second(t)
+      t_stop_abs=tref+Second(t_stop)
+      println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0*(t_stop-tstart)/(tend-tstart))%")
       t=simulate!(p,t,t_stop,d)
-      println("t=$(t)")
       if (d["plot_maps"]) && (t_stop in plot_maps_times)
-         #scatter!(fig1,p[1,:],p[2,:])
+         (debug_level>1) && println("plotting map output")
+         Plots.default(:size,d["plot_maps_size"])
+         fig1=d["plot_maps_background"](d)
          d["plot_maps_func"](fig1,d,p)
          #sleep(1)
-         gui(fig1)
+         title!(fig1,"time $(t_stop_abs) : t=$(t_stop)")
+         #gui(fig1) #force display to screen
+	 prefix=d["plot_maps_prefix"]
+	 savefig(fig1,joinpath(d["plot_maps_folder"],@sprintf("%s_%9d.png",prefix,t)))
       end
       if (d["write_maps"]) && (t_stop in write_maps_times)
          timei=findfirst(x->x==t_stop,write_maps_times)
@@ -101,6 +142,15 @@ function run_simulation(d)
 end
 
 """
+print_times(reftime,times)
+
+Print an array of relative times in compact readable format
+"""
+function print_times(reftime,times)
+   println(IOContext(stdout, :limit => true), times)
+end
+
+"""
    i1 = index(2,[1,2,3,4])
    i2 = index("bob",["alex","bob","charlie"])
    Find first occurrence of a variable in an array. 
@@ -115,8 +165,15 @@ end
    Plot particles as dots in xy-plane.
 """
 function plot_maps_xy(fig,d,p)
-   x_index=index("x",d["variables"])
-   y_index=index("y",d["variables"])
+   if "x" in d["variables"]
+      x_index=index("x",d["variables"])
+      y_index=index("y",d["variables"])
+   elseif "lon" in d["variables"]
+      x_index=index("lon",d["variables"])
+      y_index=index("lat",d["variables"])
+   else
+      error("plot_maps_xy: no spatial variables x,y or lat,lon found")
+   end
    scatter!(fig,p[x_index,:],p[y_index,:],markercolor=[:black],legend=false)
 end
 
@@ -217,6 +274,8 @@ function default_userdata()
    d["plot_maps_size"]=(1200,1000)
    d["plot_maps_times"]=[]
    d["plot_maps_func"]=plot_maps_xy
+   d["plot_maps_folder"]="output"
+   d["plot_maps_prefix"]="map"
    #results that are kept in memmory
    d["keep_particles"]=false
    d["keep_particle_times"]=[]
