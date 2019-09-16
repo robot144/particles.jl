@@ -1,9 +1,10 @@
 # Test case with very simplified 2d estuary (essentially a channel with tidal boundary)
 # Reads flow data from netcdf map ouput files from delft3d-fm
 
-include("particles.jl") 
-include("dflow.jl")
-include("wms_client.jl")
+using Particles
+#include("particles.jl") 
+#include("dflow.jl")
+#include("wms_client.jl")
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults
@@ -37,7 +38,11 @@ d["plot_map_times"]=collect((240.0*h):(1.0*h):(408*h))
 d["plot_maps"]=false
 
 #get flow interpolation functions
-dflow_map=load_nc_info("../test_data",r"DCSM-FM_0_5nm_...._map.nc")
+datadir="test_data"
+if !isdir(datadir)
+   datadir="../test_data"
+end
+dflow_map=load_nc_info(datadir,r"DCSM-FM_0_5nm_...._map.nc")
 interp=load_dflow_grid(dflow_map,50,false)
 t0=get_reftime(dflow_map)
 u,v=initialize_interpolation(dflow_map,interp,t0)
@@ -72,8 +77,4 @@ end
 d["plot_maps_background"]=plot_background
 
 
-
-#
-# make a run
-#
-@time run_simulation(d)
+nothing

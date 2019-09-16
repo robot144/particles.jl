@@ -3,6 +3,7 @@
 
 using Particles
 #include("particles.jl") 
+using Plots
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults
@@ -81,9 +82,4 @@ function plot_background(d)
 end
 d["plot_maps_background"]=plot_background
 
-
-
-#
-# make a run
-#
-@time run_simulation(d)
+nothing

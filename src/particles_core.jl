@@ -10,30 +10,36 @@ using Printf
 const debug_level=2
 
 """
-   t_next=simulate!(p,t_now,t_stop,d)
-
-Compute multiple timesteps until t>=t_stop for all particles in matrix p.
-Possibly using parameters (eg dt) from d of type userdata.
+   d = default_userdata()
+   initialize Dict with some default configuration data
 """
-function simulate!(p,t,t_stop,d)
-   dt=d["dt"]
-   f=d["f"]
-   variables=d["variables"]
-   (m,n)=size(p) # no variables x no particles
-   ds=@MVector zeros(length(variables))
-   s=@MVector zeros(length(variables))
-   while(t<t_stop)
-      (debug_level>=2) && println("... t=$(t) < $(t_stop)")
-      for i=1:n
-         s[:]=p[:,i]
-         f!(ds,s,t,i,d)
-         s+=ds*dt #Euler forward
-         #println("   $(i) $(s)")
-         p[:,i]=s[:]
-      end
-      t+=dt
-   end
-   return t
+function default_userdata()
+   d=Dict()
+   # general
+   d["dt"]=0.01 #TODO a fixed timestep will not work in general
+   d["tstart"]=0.0
+   d["tend"]=1.0
+   d["reftime"]=DateTime(2000,1,1) # Jan 1st 2000
+   d["coordinates"]="projected" #projected or spherical 
+   d["nparticles"]=10 #number of particles
+   d["variables"]=["x","y"] #recognized are x,y,lat,lon other variables are written with partial meta-data
+   d["dumval"]=9999.0
+   #plotting to screen
+   d["plot_maps"]=false
+   d["plot_maps_size"]=(1200,1000)
+   d["plot_maps_times"]=[]
+   d["plot_maps_func"]=plot_maps_xy
+   d["plot_maps_folder"]="output"
+   d["plot_maps_prefix"]="map"
+   #results that are kept in memmory
+   d["keep_particles"]=false
+   d["keep_particle_times"]=[]
+   #results written to netcdf file
+   d["write_maps"]=false
+   d["write_maps_times"]=[]
+   d["write_maps_dir"]="."
+   d["write_maps_filename"]="output.nc"
+   return d
 end
 
 """
@@ -45,6 +51,7 @@ function run_simulation(d)
    vars=d["variables"]
    npart=d["nparticles"]
    nvars=length(vars)
+   p=d["particles"]
    Plots.default(:size,d["plot_maps_size"])
 
    #show inputs
@@ -67,11 +74,11 @@ function run_simulation(d)
       print_times(tref,plot_maps_times)
       #init plots
       Plots.default(:size,d["plot_maps_size"])
-      global fig1=d["plot_maps_background"](d)
+      fig1=d["plot_maps_background"](d)
       #scatter!(fig1,p[1,:],p[2,:],legend=false)
       d["plot_maps_func"](fig1,d,p)
       # TODO possibly label=[string(t)])
-      gui(fig1)
+      #gui(fig1)
       #check outputfolder
       plot_maps_folder=d["plot_maps_folder"]
       length(plot_maps_folder)>0 || error("empty plot_maps_folder")
@@ -106,8 +113,8 @@ function run_simulation(d)
    
    # simulate in pieces until next output-action
    for t_stop=target_times
-      t_abs=tref+Second(t)
-      t_stop_abs=tref+Second(t_stop)
+      t_abs=tref+Second(round(t))
+      t_stop_abs=tref+Second(round(t_stop))
       println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0*(t_stop-tstart)/(tend-tstart))%")
       t=simulate!(p,t,t_stop,d)
       if (d["plot_maps"]) && (t_stop in plot_maps_times)
@@ -119,7 +126,7 @@ function run_simulation(d)
          title!(fig1,"time $(t_stop_abs) : t=$(t_stop)")
          #gui(fig1) #force display to screen
 	 prefix=d["plot_maps_prefix"]
-	 savefig(fig1,joinpath(d["plot_maps_folder"],@sprintf("%s_%9d.png",prefix,t)))
+	 savefig(fig1,joinpath(d["plot_maps_folder"],@sprintf("%s_%9.9f.png",prefix,t)))
       end
       if (d["write_maps"]) && (t_stop in write_maps_times)
          timei=findfirst(x->x==t_stop,write_maps_times)
@@ -132,13 +139,42 @@ function run_simulation(d)
       end
    end
 
-   NetCDF.close(nc_out)
+   if d["write_maps"]==true
+      NetCDF.close(nc_out)
+   end
    
    #wait for user 
-   if !isinteractive() #wait for user to kill final plot
-      println("Type [enter] to finish script")
-      readline()
+   #if !isinteractive() #wait for user to kill final plot
+   #   println("Type [enter] to finish script")
+   #   readline()
+   #end
+end
+
+"""
+   t_next=simulate!(p,t_now,t_stop,d)
+
+Compute multiple timesteps until t>=t_stop for all particles in matrix p.
+Possibly using parameters (eg dt) from d of type userdata.
+"""
+function simulate!(p,t,t_stop,d)
+   dt=d["dt"]
+   f=d["f"]
+   variables=d["variables"]
+   (m,n)=size(p) # no variables x no particles
+   ds=@MVector zeros(length(variables))
+   s=@MVector zeros(length(variables))
+   while(t<(t_stop-0.25*dt))
+      (debug_level>=2) && println("... t=$(t) < $(t_stop)")
+      for i=1:n
+         s[:]=p[:,i]
+         f(ds,s,t,i,d)
+         s+=ds*dt #Euler forward
+         #println("   $(i) $(s)")
+         p[:,i]=s[:]
+      end
+      t+=dt
    end
+   return t
 end
 
 """
@@ -254,36 +290,4 @@ function initialize_netcdf_output(d)
    #NetCDF.close(nc)
 end
 
-"""
-   d = default_userdata()
-   initialize Dict with some default configuration data
-"""
-function default_userdata()
-   d=Dict()
-   # general
-   d["dt"]=0.01 #TODO a fixed timestep will not work in general
-   d["tstart"]=0.0
-   d["tend"]=1.0
-   d["reftime"]=DateTime(2000,1,1) # Jan 1st 2000
-   d["coordinates"]="projected" #projected or spherical 
-   d["nparticles"]=10 #number of particles
-   d["variables"]=["x","y"] #recognized are x,y,lat,lon other variables are written with partial meta-data
-   d["dumval"]=9999.0
-   #plotting to screen
-   d["plot_maps"]=false
-   d["plot_maps_size"]=(1200,1000)
-   d["plot_maps_times"]=[]
-   d["plot_maps_func"]=plot_maps_xy
-   d["plot_maps_folder"]="output"
-   d["plot_maps_prefix"]="map"
-   #results that are kept in memmory
-   d["keep_particles"]=false
-   d["keep_particle_times"]=[]
-   #results written to netcdf file
-   d["write_maps"]=false
-   d["write_maps_times"]=[]
-   d["write_maps_dir"]="."
-   d["write_maps_filename"]="output.nc"
-   return d
-end
-
+nothing

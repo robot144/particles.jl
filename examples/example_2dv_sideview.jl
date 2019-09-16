@@ -1,6 +1,8 @@
 # Test case with simple flow in x-direction with vertical coordinate
 
-include("particles.jl") 
+using Particles
+using Plots
+#include("particles.jl") 
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults
@@ -56,8 +58,4 @@ end
 d["plot_maps_background"]=plot_background
 d["plot_maps_func"]=plot_maps_xz
 
-
-#
-# make a run
-#
-@time run_simulation(d)
+nothing

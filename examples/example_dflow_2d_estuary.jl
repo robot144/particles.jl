@@ -1,8 +1,9 @@
 # Test case with very simplified 2d estuary (essentially a channel with tidal boundary)
 # Reads flow data from netcdf map ouput files from delft3d-fm
 
-include("particles.jl") 
-include("dflow.jl")
+using Particles
+#include("particles.jl") 
+#include("dflow.jl")
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults
@@ -26,7 +27,11 @@ d["plot_map_times"]=collect(0.0:3600.0:(25*3600.0))
 d["plot_maps"]=true
 
 #get flow interpolation functions
-dflow_map=load_nc_info("../test_data",r"estuary_...._map.nc")
+datadir="test_data"
+if !isdir("test_data")
+   datadir="../test_data"
+end
+dflow_map=load_nc_info(datadir,r"estuary_...._map.nc")
 interp=load_dflow_grid(dflow_map,50,false)
 t0=get_reftime(dflow_map)
 u,v=initialize_interpolation(dflow_map,interp,t0)
@@ -59,9 +64,4 @@ function plot_background(d)
 end
 d["plot_maps_background"]=plot_background
 
-
-
-#
-# make a run
-#
-@time run_simulation(d)
+nothing
