@@ -21,7 +21,7 @@ function test1()
    img=get_map(emodnet_server,bbox)
    @test size(img)==(800, 1200)
    @test Float64(img[1,1].r)==0.7137254901960784 #carefull, since this is sensitive to server changes
-   @test isfile(joinpath(".cache","ows.emodnet-bathymetry.eu_11989936048957546058.png")) 
+   @test isfile(joinpath(".cache","ows.emodnet-bathymetry.eu_8803805663758041344.png")) 
    plot_image(img,bbox)
  end
    
@@ -34,7 +34,7 @@ function test2()
    bbox=[0.0,49.0,9.0,55.0]
    img=get_map(osm_server,bbox,width,height)
    @test size(img)==(1000, 1200)
-   @test isfile(joinpath(".cache","ows.terrestris.de_16936554926278234431.png")) 
+   @test isfile(joinpath(".cache","ows.terrestris.de_9092741814141544534.png")) 
    plot_image(img,bbox)
  end
    
@@ -47,7 +47,7 @@ function test3()
    bbox=[-180.0,-90.0,180.0,90.0]
    img=get_map(gebco_server,bbox,width,height)
    @test size(img)==(1000, 2000)
-   @test isfile(joinpath(".cache","www.gebco.net_14463106800404217508.png")) 
+   @test isfile(joinpath(".cache","www.gebco.net_7532605064285132715.png")) 
    plot_image(img,bbox)
  end
 

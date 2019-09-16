@@ -55,8 +55,10 @@ function run_simulation(d)
    Plots.default(:size,d["plot_maps_size"])
 
    #show inputs
-   println("configuration")
-   display(d)
+   if debug_level>2
+      println("configuration")
+      display(d)
+   end
 
    #simulation timespan
    tstart=d["tstart"]

@@ -1,9 +1,12 @@
 # Test case with very simplified 2d estuary (essentially a channel with tidal boundary)
 # Reads flow data from netcdf map ouput files from delft3d-fm
 
-include("particles.jl") 
-include("dflow.jl")
-include("wms_client.jl")
+using Particles
+using Dates
+using Plots
+#include("particles.jl") 
+#include("dflow.jl")
+#include("wms_client.jl")
 
 #collected configuration is in Dict d 
 d=default_userdata() # start with some defaults
@@ -14,7 +17,7 @@ d["nparticles"]=n
 d["coordinates"]="spherical" #projected or spherical 
 variables=["lon","lat","age"]
 d["variables"]=variables
-#d["bbox"]=[-15.0,13.0,64.0] #model domain
+#d["bbox"]=[-15.0,43.0,13.0,64.0] #model domain
 d["bbox"]=[4.5,53.0,5.5,54.0] #where we expect particles
 # initial position of the particles
 m=length(variables)
@@ -23,49 +26,59 @@ p[1,:]=5.0.+0.05*randn(n,1)
 p[2,:]=53.5.+0.05*randn(n,1)
 d["particles"]=p #initial values
 # simulation time
-# reference 22-12-2012 in file
+# reference 22-12-2018 in file
 # times in input file 2019-01-01 - 2019-01-15
 d["reftime"]=DateTime(2019,01,01) #we use 2019-01-01 as refdate for this run 
 h=3600.0 #seconds per hour
 d["dt"]=1800.0 #seconds
 d["tstart"]=0.0*h
-#d["tend"]=14.0*24.0*h
-d["tend"]=10*h #TODO short run for debugging
+d["tend"]=14.0*24.0*h
 #write to netcdf
 d["write_maps_times"]=collect((0.0*h):(1.0*h):(14*24*h)) 
 d["write_maps"]=true
 d["write_maps_filename"]="output_dflow_2d_dcsm2019.nc"
-#plot to screen 
+#plot maps 
 d["plot_maps_times"]=collect((0.0*h):(1.0*h):(14*24*h))
 d["plot_maps"]=true
 
-#get flow interpolation functions
-dflow_map=load_nc_info("../data",r"DCSM-FM_0_5nm_...._map.nc")
-interp=load_dflow_grid(dflow_map,50,false)
-#t0=get_reftime(dflow_map)
-t0=d["reftime"]
-u,v=initialize_interpolation(dflow_map,interp,t0)
-
-
 """
-   !f(ds,s,t,i,d)
-
-Dynamic model, computes time derivative ds of s at current time t
-for particle i and possibly using data/functions from d of type userdata.
+   d["f"]=initialie_model(d)
+Create model functions with a local scope.
 """
-function f!(dt,s,t,i,d)
-   lon,lat,age = s
-   z=0.0
-   R=6371.0e3 #mean radius of earth from wikipedia
-   deg2rad=pi/180.0 #convert degrees to radians
-   # dx/dt=u
-   dt[1] = dlon = u(lon,lat,z,t)/(R*cos(deg2rad*lat))
-   # dy/dt=v
-   dt[2] = dlat = v(lon,lat,z,t)/R
-   # age=(t-t0)
-   dt[3] = dage = 1.0
+function initialize_model(d)
+   datadir="data"
+   if !isdir(datadir)
+      datadir="../data"
+   end
+   #get flow interpolation functions
+   dflow_map=load_nc_info(datadir,r"DCSM-FM_0_5nm_...._map.nc")
+   interp=load_dflow_grid(dflow_map,50,false)
+   #t0=get_reftime(dflow_map)
+   t0=d["reftime"]
+   u,v=initialize_interpolation(dflow_map,interp,t0)
+   
+   """
+      !f(ds,s,t,i,d)
+   
+   Dynamic model, computes time derivative ds of s at current time t
+   for particle i and possibly using data/functions from d of type userdata.
+   """
+   function f!(dt,s,t,i,d)
+      lon,lat,age = s
+      z=0.0
+      R=6371.0e3 #mean radius of earth from wikipedia
+      deg2rad=pi/180.0 #convert degrees to radians
+      rad2deg=180.0/pi
+      # dx/dt=u
+      dt[1] = dlon = rad2deg*u(lon,lat,z,t)/(R*cos(deg2rad*lat))
+      # dy/dt=v
+      dt[2] = dlat = rad2deg*v(lon,lat,z,t)/R
+      # age=(t-t0)
+      dt[3] = dage = 1.0
+   end
+   return f!
 end
-d["f"]=f!
+d["f"]=initialize_model(d)
 
 #prepage background image
 plot_maps_size=d["plot_maps_size"]
@@ -83,8 +96,6 @@ function plot_background(d)
 end
 d["plot_maps_background"]=plot_background
 
-d
-#
-# make a run
-#
-#@time run_simulation(d)
+
+println("run_simulation(d) to start run")
+nothing

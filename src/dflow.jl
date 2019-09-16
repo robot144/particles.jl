@@ -191,7 +191,7 @@ end
 Create interpolation functions for x and y (lon and lat) directions of the flow. 
 The reftime can be chosen freely independent of the reftime in the input files.
 """ 
-function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=-9999.0)
+function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=0.0)
    println("initialize caching for $(dflow_map[1].name) ...")
    map_cache=dflow_map
    interp_cache=interp
@@ -288,9 +288,13 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       w=weights(t)
       value=0.0
       for ti=1:3
-         value+=apply_index(ind,u_cache[ti],dumval_cache)
+         value+=w[ti]*apply_index(ind,u_cache[ti],dumval_cache)
       end
-      value
+      if abs(value)>100.0
+         println("u interpolation")
+         println("w $(weights) : $(ind)")
+      end
+      return value
    end
    #flow in y direction (for now has to be called v)
    function v(x,y,z,t)
@@ -299,9 +303,9 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       w=weights(t)
       value=0.0
       for ti=1:3
-         value+=apply_index(ind,v_cache[ti],dumval_cache)
+         value+=w[ti]*apply_index(ind,v_cache[ti],dumval_cache)
       end
-      value
+      return value
    end
    return (u,v)
 end
