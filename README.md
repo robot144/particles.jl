@@ -2,8 +2,7 @@
 Particle modelling tools for coastal flow
 
 # package development on windows
-- add your julia development folder to the LOAD_PATH. This can be done on the prompt or in your startup.jl file in folder c:\Users\username\.julia\config. Create the folder if it does not exist  
-`push!(LOAD_PATH, "d:\\some_folder\\julia"`  
+- add your julia development folder to the LOAD_PATH using `push!(LOAD_PATH, "some_drive:\\some_folder\\julia"`. This can be done on the prompt or in your startup.jl file in folder c:\Users\username\.julia\config. Create the config folder if it does not exist.  
 - activate Particles  
 cd to folder eg `cd("d:\\some_folder\\julia\\Particles")`  
 `using Pkg`  
@@ -24,9 +23,7 @@ The unit tests reside in tests. The main script is runtests.jl. To run them type
 `run_simulation(d)`  
 
 # package development on linux
-- add your julia development folder to the LOAD_PATH. This can be done on the prompt or in your startup.jl file in the folder
-$HOME/.julia/config . Create this folder if it does not exist already. 
-`push!(LOAD_PATH, "$(homedir())/src/julia")`  
+- add your julia development folder to the LOAD_PATH using `push!(LOAD_PATH, "$(homedir())/src/julia")`. This can be done on the prompt or in your startup.jl file in the folder $HOME/.julia/config. Create this config folder if it does not exist already. 
 - activate Particles
 cd to folder on bach prompt eg `cd $HOME/src/julia/Particles` 
 start julia with `julia --project`  
