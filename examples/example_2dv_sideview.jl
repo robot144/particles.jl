@@ -2,14 +2,14 @@
 
 using Particles
 using Plots
-#include("particles.jl") 
+#include("particles.jl")
 
-#collected configuration is in Dict d 
+#collected configuration is in Dict d
 d=default_userdata() # start with some defaults
 #settings for this experiment
 n=30 #number of particles
 d["nparticles"]=n
-# all variables for one particle are collected in a vector 
+# all variables for one particle are collected in a vector
 variables=["x","y","z"]
 d["variables"]=variables
 # initial position of the particles
@@ -22,7 +22,7 @@ d["particles"]=p #initial values
 d["dt"]=0.1
 d["tstart"]=0.0
 d["tend"]=90.0
-d["plot_map_times"]=collect(0.0:1.0:90.0)
+d["plot_maps_times"]=collect(0.0:10.0:90.0)
 d["plot_maps"]=true
 
 #flow in x direction (for now has to be called u)
