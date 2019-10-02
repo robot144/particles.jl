@@ -4,17 +4,17 @@
 using Particles
 using Dates
 using Plots
-#include("particles.jl") 
+#include("particles.jl")
 #include("dflow.jl")
 #include("wms_client.jl")
 
-#collected configuration is in Dict d 
+#collected configuration is in Dict d
 d=default_userdata() # start with some defaults
 #settings for this experiment
 n=30 #number of particles
 d["nparticles"]=n
-# all variables for one particle are collected in a vector 
-d["coordinates"]="spherical" #projected or spherical 
+# all variables for one particle are collected in a vector
+d["coordinates"]="spherical" #projected or spherical
 variables=["lon","lat","age"]
 d["variables"]=variables
 #d["bbox"]=[-15.0,43.0,13.0,64.0]
@@ -28,7 +28,7 @@ d["particles"]=p #initial values
 # simulation time
 # reference 22-12-2012 + 240-408 hours
 #
-d["reftime"]=DateTime(2012,12,22) 
+d["reftime"]=DateTime(2012,12,22)
 h=3600.0 #seconds per hour
 d["dt"]=600.0 #seconds
 d["tstart"]=240.0*h
@@ -38,7 +38,7 @@ d["write_maps_times"]=collect((240.0*h):(1.0*h):(408*h))
 d["write_maps"]=true
 d["write_maps_filename"]="output_dflow_2d_dcsm.nc"
 #plot maps
-d["plot_map_times"]=collect((240.0*h):(1.0*h):(408*h))
+d["plot_maps_times"]=collect((240.0*h):(10.0*h):(408*h))      #was d["plot_map_times"] , mist een s #ging met een tijdstap van 1.0*h nu 10.0*h
 d["plot_maps"]=true
 
 """
@@ -56,10 +56,10 @@ function initialize_model(d)
    #t0=get_reftime(dflow_map)
    t0=d["reftime"]
    u,v=initialize_interpolation(dflow_map,interp,t0)
-   
+
    """
       !f(ds,s,t,i,d)
-   
+
    Dynamic model, computes time derivative ds of s at current time t
    for particle i and possibly using data/functions from d of type userdata.
    """
