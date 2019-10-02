@@ -2,15 +2,16 @@
 # Reads flow data from netcdf map ouput files from delft3d-fm
 
 using Particles
-#include("particles.jl") 
+using Plots
+#include("particles.jl")
 #include("dflow.jl")
 
-#collected configuration is in Dict d 
+#collected configuration is in Dict d
 d=default_userdata() # start with some defaults
 #settings for this experiment
 n=30 #number of particles
 d["nparticles"]=n
-# all variables for one particle are collected in a vector 
+# all variables for one particle are collected in a vector
 variables=["x","y","z","age"]
 d["variables"]=variables
 # initial position of the particles
@@ -23,7 +24,7 @@ d["particles"]=p #initial values
 d["dt"]=3600.0
 d["tstart"]=0.0
 d["tend"]=25*3600.0
-d["plot_map_times"]=collect(0.0:3600.0:(25*3600.0))
+d["plot_maps_times"]=collect(0.0:3600.0:(25*3600.0))
 d["plot_maps"]=true
 
 
@@ -44,7 +45,7 @@ function initialize_model(d)
 
    """
       f!(ds,s,t,i,d)
-   
+
    Dynamic model, computes time derivative ds of s at current time t
    for particle i and possibly using data/functions from d of type userdata.
    """
