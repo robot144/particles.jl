@@ -38,7 +38,7 @@ d["write_maps_times"]=collect((240.0*h):(1.0*h):(408*h))
 d["write_maps"]=true
 d["write_maps_filename"]="output_dflow_2d_dcsm.nc"
 #plot maps
-d["plot_maps_times"]=collect((240.0*h):(10.0*h):(408*h))      #was d["plot_map_times"] , mist een s #ging met een tijdstap van 1.0*h nu 10.0*h
+d["plot_maps_times"]=collect((240.0*h):(10.0*h):(408*h))
 d["plot_maps"]=true
 
 """
