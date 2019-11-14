@@ -48,9 +48,22 @@ for ti=1:length(tt)
   vv[ti]=v1(lon,lat,0.0,ts[ti])
 end
 plot(tt,[uu,vv],label=["u east","v north"])
+title!("Tidal currents from GTSM model at lon-2 lat=50")
+savefig("timseries_uv_2w_50n.png")
+# first interpolate to track positions and times for track 1
+utrack1=zeros(length(t[1].Times))
+vtrack1=zeros(length(t[1].Times))
+ttrack1=zeros(length(t[1].Times))
+for ti=1:length(ttrack1)
+   time=(t[1].Times[ti]-t0).value/1000 #convert to seconds relative to t0
+   #println("time=$(time) $(ti)")
+   ttrack1[ti]=time
+   utrack1[ti]=u1(t[1].Lon[ti],t[1].Lat[ti],0.0,ttrack1[ti])
+   vtrack1[ti]=v1(t[1].Lon[ti],t[1].Lat[ti],0.0,ttrack1[ti])
+end
 
 #
-# plot traks on a background
+# plot tracks on a background
 #
 width=1000
 height=1000
@@ -74,8 +87,9 @@ savefig("track_East_Bound_combined.png")
 # plot speed as timeseries (SOG= Speed Over Ground)
 #
 knots2ms=0.514444 #conversion of speed as knots to meters/second
-plot(t[1].Times,t[1].SOG*knots2ms)
-title!("Speed over ground for $(shipnames[1])")
-ylabel!("SOG [m/s]")
+#plot(t[1].Times,t[1].SOG*knots2ms)
+plot(t[1].Times,[t[1].SOG*knots2ms,utrack1,vtrack1],label=["SOG from AIS","GTSM u east","GTSM v north"])
+title!("Speed and current along track1")
+ylabel!("[m/s]")
 
 savefig("timeseries_speed_1.png")
