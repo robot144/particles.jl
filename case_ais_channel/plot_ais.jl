@@ -17,7 +17,7 @@ push!(t,CSV.read("East_Bound_combined_256735000.csv",header=2))
 push!(t,CSV.read("East_Bound_combined_25903000.csv",header=2))
 # convert times from strings to DateTime values
 for ti=1:length(t)
-   times=t[ti][1]
+   times=t[ti][:,1]
    ts=[DateTime(t,"dd/mm/yyyy HH:MM:SS") for t=times]
    t[ti].Times=ts
 end
@@ -31,9 +31,9 @@ end
 dflow_map=load_nc_info(".",r"gtsm_fine_...._map.nc")
 t0=get_reftime(dflow_map)
 # create interpolation functions u1(x,y,z,t) and v1(x,y,z,t) with t in seconds relative to t0
+interp=load_dflow_grid(dflow_map,50,false)
 u1,v1=initialize_interpolation(dflow_map,interp,t0)
 # some tests
-#interp=load_dflow_grid(dflow_map,50,false)
 #ind=find_index(interp,-2.0,50.0)
 #ff=u1(-2.0,50.0,0.0,0.) #lon,lat,dummy,t with t in seconds relative to t0
 # create timeseries at one point
