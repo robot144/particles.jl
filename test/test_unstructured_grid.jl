@@ -86,7 +86,7 @@ end
 
 function test3()
    #medium level interpolation on data from netcdf
-   map0=ncinfo("../test_data/estuary_0000_map.nc")
+   map0=NetCDF.open("../test_data/estuary_0000_map.nc")
    edges0=map0.vars["NetElemNode"][:,:]'
    xnodes0=map0.vars["NetNode_x"][:]
    ynodes0=map0.vars["NetNode_y"][:]
@@ -124,8 +124,8 @@ end
 
 function test4(nmin=50)
    map=[]
-   push!(map,ncinfo("../test_data/estuary_0000_map.nc"))
-   push!(map,ncinfo("../test_data/estuary_0001_map.nc"))
+   push!(map,NetCDF.open("../test_data/estuary_0000_map.nc"))
+   push!(map,NetCDF.open("../test_data/estuary_0001_map.nc"))
    interp=Interpolator()
    for i=1:length(map)
       edges_temp=map[i].vars["NetElemNode"][:,:]'
@@ -165,10 +165,10 @@ end
 function test5(nmin)
    #large test for measuring performance
    map=[]
-   push!(map,ncinfo("../output/gtsm_fine_0000_map.nc"))
-   push!(map,ncinfo("../output/gtsm_fine_0001_map.nc"))
-   push!(map,ncinfo("../output/gtsm_fine_0002_map.nc"))
-   push!(map,ncinfo("../output/gtsm_fine_0003_map.nc"))
+   push!(map,NetCDF.open("../output/gtsm_fine_0000_map.nc"))
+   push!(map,NetCDF.open("../output/gtsm_fine_0001_map.nc"))
+   push!(map,NetCDF.open("../output/gtsm_fine_0002_map.nc"))
+   push!(map,NetCDF.open("../output/gtsm_fine_0003_map.nc"))
    interp=Interpolator()
    for i=1:length(map)
       edges_temp=map[i].vars["NetElemNode"][:,:]'

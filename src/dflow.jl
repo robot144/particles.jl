@@ -16,7 +16,7 @@ function load_nc_info(path,filename_regex::Regex)
    map=[]
    filenames=filter(x->(match(filename_regex,x)!=nothing), readdir(path))
    for filename=filenames
-      push!(map,ncinfo(joinpath(path,filename)))
+      push!(map,NetCDF.open(joinpath(path,filename)))
    end
    return map
 end
