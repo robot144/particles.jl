@@ -132,17 +132,21 @@ function get_times(map,reftime::DateTime)
    else
       error("Invalid time-step unit in map-file.")
    end
-   if ((time_relative[2]-time_relative[1])>(1.1*(time_relative[3]-time_relative[2])))
-      #check for dummy initial field
-      t_start = (0.001*Dates.value(t0-reftime))+time_relative[2]*dt_seconds
-      t_step  = (time_relative[3]-time_relative[2])*dt_seconds
-      t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
-      times = t_start:t_step:t_stop
-   else
-      t_start = (0.001*Dates.value(t0-reftime))+time_relative[1]*dt_seconds
-      t_step  = (time_relative[2]-time_relative[1])*dt_seconds
-      t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
-      times = t_start:t_step:t_stop
+   #if ((time_relative[2]-time_relative[1])>(1.1*(time_relative[3]-time_relative[2])))
+   #   #check for dummy initial field
+   #   t_start = (0.001*Dates.value(t0-reftime))+time_relative[2]*dt_seconds
+   #   t_step  = (time_relative[3]-time_relative[2])*dt_seconds
+   #   t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
+   #   times = t_start:t_step:t_stop
+   #else
+   #   t_start = (0.001*Dates.value(t0-reftime))+time_relative[1]*dt_seconds
+   #   t_step  = (time_relative[2]-time_relative[1])*dt_seconds
+   #   t_stop  = (0.001*Dates.value(t0-reftime))+time_relative[end]*dt_seconds
+   #   times = t_start:t_step:t_stop
+   #end
+   times=[]
+   for ti=1:length(time_relative)
+      push!(times,(0.001*Dates.value(t0-reftime))+time_relative[ti]*dt_seconds)
    end
    return times
 end
@@ -215,6 +219,7 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       v_cache[ti]=load_nc_map_slice(dflow_map,ucy,ti)
    end
    time_cache_index=3 #index of last cached field in list of all available times
+   (debuglevel>4) && println("Initial cache index=$(time_cache_index) ")
    """
        update_cache(t)
        Refresh the cached fields if needed.
@@ -286,9 +291,12 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       ind=find_index(interp_cache,x,y)
       update_cache(t)
       w=weights(t)
+      (debuglevel>3) && println("weights $(weights)")
       value=0.0
       for ti=1:3
-         value+=w[ti]*apply_index(ind,u_cache[ti],dumval_cache)
+         temp=apply_index(ind,u_cache[ti],dumval_cache)
+         value+=w[ti]*temp
+         (debuglevel>4) && println(" add w*val = $(w[ti]) $(temp)")
       end
       if abs(value)>100.0
          println("u interpolation")

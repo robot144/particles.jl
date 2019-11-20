@@ -28,14 +28,18 @@ for si=1:5
 end
 
 # read GTSM current data
-dflow_map=load_nc_info(".",r"gtsm_fine_...._map.nc")
+dflow_map=load_nc_info(".",r"gtsm_fine_...._map.nc");
 t0=get_reftime(dflow_map)
 # create interpolation functions u1(x,y,z,t) and v1(x,y,z,t) with t in seconds relative to t0
-interp=load_dflow_grid(dflow_map,50,false)
-u1,v1=initialize_interpolation(dflow_map,interp,t0)
+interp=load_dflow_grid(dflow_map,50,false);
+u1,v1=initialize_interpolation(dflow_map,interp,t0);
 # some tests
-#ind=find_index(interp,-2.0,50.0)
-#ff=u1(-2.0,50.0,0.0,0.) #lon,lat,dummy,t with t in seconds relative to t0
+#ind=find_index(interp,-2.0,50.0)[2]
+#uu=dflow_map[1].vars["ucx"];
+#tu=dflow_map[1].vars["time"];
+#uu[ind,1:5]
+#tu[1:5]
+#ff=u1(-2.0,50.0,0.0,1209600.0) #lon,lat,dummy,t with t in seconds relative to t0
 # create timeseries at one point
 lon=-2.0
 lat=50.0

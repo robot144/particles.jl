@@ -77,7 +77,7 @@ function test2()
       u_value=u2(1.0,51.0,0.0,864000.0+3600.0*istep)
       println("$(istep) u=$(u_value)")
       if istep==5
-         @test u_value==0.0825077229874113
+         @test u_value==0.04639523554494074
       end
    end
 end
