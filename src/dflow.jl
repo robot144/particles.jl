@@ -123,11 +123,11 @@ function get_times(map,reftime::DateTime)
    dt_seconds=1.0
    if startswith(temp[1],"seconds")
       dt_seconds=1.0
-   elseif startwith(temp[1],"minutes")
+   elseif startswith(temp[1],"minutes")
       dt_seconds=60.0
-   elseif startwith(temp[1],"hours")
+   elseif startswith(temp[1],"hours")
       dt_seconds=3600.0
-   elseif startwith(temp[1],"days")
+   elseif startswith(temp[1],"days")
       dt_seconds=24.0*3600.0
    else
       error("Invalid time-step unit in map-file.")
