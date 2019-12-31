@@ -75,37 +75,6 @@ function load_nc_map_slice(map,varname,itime)
    return result
 end
 
-"""
-   cell_index = find_index(interp, xpoint, ypoint)
-Find the domain and index of the cell within that domain, eg the result [2,1234]
-indicates the cell 1234 in the snd domain.
-"""
-function find_index(interp::Interpolator,xpoint,ypoint)
-   indices=[-1 -1]
-   for i=1:length(interp.grids)
-      cell=find_first_cell(xpoint,ypoint,interp.grids[i])
-      if cell>0
-         indices[1]=i
-         indices[2]=cell
-         break
-      end
-   end
-   return indices
-end
-
-"""
-   waterlevel_at_point = apply_index(index,map_slice,9999.0)
-Get the number at domain and index (given by index). The index is often the result of 
-the function find_index. If the cell index is [-1,-1] then the point is considered to
-be outside the area covered by the cells, eg on land, and then a default value is returned.
-"""
-function apply_index(index,map_slice,default_value=0.0)
-   if index[1]>0
-      return map_slice[index[1]][index[2]]
-   else
-      return default_value
-   end
-end
 
 """
    times=get_times(map,Dates.DateTime(2019,1,1))

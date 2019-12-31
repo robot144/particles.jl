@@ -1,9 +1,8 @@
 # some tools for unstructured grids
-using Printf
 using Test
 using NetCDF
 
-const debuglevel=1
+const debuglevel=3
 
 if !@isdefined(Grid)
 mutable struct Grid
@@ -103,7 +102,7 @@ function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
       interp.outy_hash=outy_hash
       cached_indices=[]
       for i=1:length(interp.grids)
-         @printf("grid %d\n",i)
+         println("grid $(i)")
          @time cells=find_cells(xpoints,ypoints,interp.grids[i])
          push!(cached_indices,cells)
       end
@@ -176,17 +175,17 @@ function find_first_cell(xpoint,ypoint,xnodes,ynodes,edges,nnodes)
    #stops at first hit and return row number of edges array
    #return -1 if no cell is found
    #TODO start with linear search. Make more efficient later
-   ##@printf("x=%f y=%f \n",xpoint,ypoint)
+   ##println("x=$(xpoint) y=$(ypoint) ")
    m,n=size(edges)
    for i=1:m
       wn=0
       xprev=xnodes[edges[i,nnodes[i]]]
       yprev=ynodes[edges[i,nnodes[i]]]
       for j=1:nnodes[i]
-         ##@printf("edge %d\n",j)
+         ##println("edge $(j)")
          xthis=xnodes[edges[i,j]]
          ythis=ynodes[edges[i,j]]
-         ##@printf("(%f,%f) -> (%f,%f)\n",xprev,yprev,xthis,ythis)
+         ##println("($(xprev),$(yprev))) -> ($(xthis),$(ythis))")
          # look for crossing of y=ypoint and x>xpoint, ie east of point
          if((yprev<ypoint)&&(ythis>=ypoint))
             #check for northward crossing east of point
@@ -194,7 +193,7 @@ function find_first_cell(xpoint,ypoint,xnodes,ynodes,edges,nnodes)
    	    x=xprev+s*(xthis-xprev)
    	    if x>xpoint
    	       wn+=1
-               ##@printf("north\n")
+               ##println("north")
             end
          end
          if((yprev>=ypoint)&&(ythis<ypoint))
@@ -203,14 +202,14 @@ function find_first_cell(xpoint,ypoint,xnodes,ynodes,edges,nnodes)
    	    x=xprev+s*(xthis-xprev)
    	    if x>xpoint
    	       wn-=1
-               ##@printf("south\n")
+               ##println("south")
             end
          end
          xprev=xthis
          yprev=ythis
       end
       #wn now contains winding number
-      ##@printf("cell %d winding-number %d \n",i,wn)
+      ##println("cell $(i) winding-number $(wn) ")
       if wn!=0 
          return i
       end
@@ -298,7 +297,7 @@ function find_first_cell(xpoint,ypoint,grid::Grid)
    #stops at first hit and return row number of edges array
    #return -1 if no cell is found
    #TODO start with linear search. Make more efficient later
-   ##@printf("x=%f y=%f \n",xpoint,ypoint)
+   ##println("x=$(xpoint) y=$(ypoint)")
    if !in_bbox(xpoint,ypoint,grid.bbox)
       return -1 #no chance to find anything outside bbox
    end
@@ -320,10 +319,10 @@ function find_first_cell(xpoint,ypoint,grid::Grid)
       xprev=grid.xnodes[grid.edges[iedge,grid.nnodes[iedge]]]
       yprev=grid.ynodes[grid.edges[iedge,grid.nnodes[iedge]]]
       for j=1:grid.nnodes[iedge]
-         ##@printf("edge %d\n",j)
+         ##println("edge $(i))")
          xthis=grid.xnodes[grid.edges[iedge,j]]
          ythis=grid.ynodes[grid.edges[iedge,j]]
-         ##@printf("(%f,%f) -> (%f,%f)\n",xprev,yprev,xthis,ythis)
+         ##println("($(xprev),$(yprev)) -> ($(xthis),$(ythis))\n",xprev,yprev,xthis,ythis)
          # look for crossing of y=ypoint and x>xpoint, ie east of point
          if((yprev<ypoint)&&(ythis>=ypoint))
             #check for northward crossing east of point
@@ -331,7 +330,7 @@ function find_first_cell(xpoint,ypoint,grid::Grid)
    	    x=xprev+s*(xthis-xprev)
    	    if x>xpoint
    	       wn+=1
-               ##@printf("north\n")
+               ##println("north")
             end
          end
          if((yprev>=ypoint)&&(ythis<ypoint))
@@ -340,14 +339,14 @@ function find_first_cell(xpoint,ypoint,grid::Grid)
    	    x=xprev+s*(xthis-xprev)
    	    if x>xpoint
    	       wn-=1
-               ##@printf("south\n")
+               ##println("south")
             end
          end
          xprev=xthis
          yprev=ythis
       end
       #wn now contains winding number
-      ##@printf("cell %d winding-number %d \n",iedge,wn)
+      ##println("cell $(iednge) winding-number $(wn)")
       if wn!=0 
          return iedge
       end
@@ -374,7 +373,7 @@ function create_node_tree!(grid::Grid,nmin=100)
    if length(grid.edge_indices)>nmin
       # recursively split grid into subgrids
       n=length(grid.edge_indices)
-      #@printf("n=%d\n",n)
+      #println("n=$(n)")
       edge_indices1=zeros(Int64,n)
       edge_indices2=zeros(Int64,n)
       bbox1=zeros(Float64,4)
@@ -389,11 +388,11 @@ function create_node_tree!(grid::Grid,nmin=100)
          # split x-direction
          xsplit_low =bbox[1]+0.45*(bbox[2]-bbox[1])
          xsplit_high=bbox[1]+0.55*(bbox[2]-bbox[1])
-         #@printf("x-split %f %f\n",xsplit_low,xsplit_high)
+         #println("x-split $(xsplit_low) $(xsplit_high)")
 	 bbox_temp=zeros(Float64,4)
          for i=1:length(grid.edge_indices)
             iedge=grid.edge_indices[i]
-            #@printf("edge %d\n",iedge)
+            #println("edge $(iedge)")
             compute_boundingbox!(bbox_temp,grid.xnodes,grid.ynodes,grid.edges,grid.nnodes,iedge)
             if (bbox_temp[2]<=xsplit_high ) #left
                #println("left")
@@ -428,11 +427,11 @@ function create_node_tree!(grid::Grid,nmin=100)
          # split y-direction
          ysplit_low =bbox[3]+0.45*(bbox[4]-bbox[3])
          ysplit_high=bbox[3]+0.55*(bbox[4]-bbox[3])
-         #@printf("y-split %f %f\n",ysplit_low,ysplit_high)
+         #println("y-split $(ysplit_low) $(ysplit_high)")
 	 bbox_temp=zeros(Float64,4)
          for i=1:length(grid.edge_indices)
             iedge=grid.edge_indices[i]
-            #@printf("edge %d\n",iedge)
+            #print("edge $(iedge)")
             compute_boundingbox!(bbox_temp,grid.xnodes,grid.ynodes,grid.edges,grid.nnodes,iedge)
             #println(bbox_temp)
             if (bbox_temp[4]<=ysplit_high ) #bottom
@@ -465,7 +464,7 @@ function create_node_tree!(grid::Grid,nmin=100)
             end
          end
       end
-      #@printf("parent,child1,child2=%d,%d,%d\n",n,n1,n2)
+      #println("parent,child1,child2=$(n),$(n1),$(n2)")
       #dump_array(bbox1,"bbox1")
       #dump_array(bbox2,"bbox2")
       #child 1
@@ -496,10 +495,10 @@ import Base.dump
 function dump(grid::Grid)
    dump_array(grid.xnodes,"xnodes")
    dump_array(grid.ynodes,"ynodes")
-   @printf(" edges[] = ")
+   print(" edges[] = ")
    dump(grid.edges)
-   @printf("--- subgrid ---\n")
-   @printf("%3d bbox=",0)
+   println("--- subgrid ---")
+   print("000 bbox=")
    show(grid.bbox)
    dump_array(grid.edge_indices,"  edge_indices")
    for i=1:length(grid.subgrids)
@@ -508,7 +507,7 @@ function dump(grid::Grid)
 end
 
 function dump_subgrid(grid::Grid,level)
-   @printf("%3d bbox=",level)
+   print("$(level) bbox=")
    show(grid.bbox)
    dump_array(grid.edge_indices,"  edge_indices")
    for i=1:length(grid.subgrids)
@@ -519,15 +518,47 @@ end
 function dump_array(a,name="")
    s=size(a)
    if(length(s)==1)
-      @printf("%s[1:%d]=",name,length(a))
+      print("$(name)[1:$(length(a))]=")
       if(length(a)>10)
-         @printf("[%f,%f,%f,%f,%f,...,%f,%f,%f,%f,%f]\n",a[1],a[2],a[3],a[4],a[5],a[end-4],a[end-3],a[end-2],a[end-1],a[end])
+         println("[$(a[1]),$(a[2]),$(a[3]),$(a[4]),$(a[5]),...,
+		   $(a[end-4]),$(a[end-3]),$(a[end-2]),$(a[end-1]),$(a[end])]")
       elseif(length(a)==0)
-         print("[]\n")
+         println("[]")
       else
          show(a)
-	 print("\n")
+	 println("")
       end
    end
 end
 
+"""
+   cell_index = find_index(interp, xpoint, ypoint)
+Find the domain and index of the cell within that domain, eg the result [2,1234]
+indicates the cell 1234 in the snd domain.
+"""
+function find_index(interp::Interpolator,xpoint,ypoint)
+   indices=[-1 -1]
+   for i=1:length(interp.grids)
+      cell=find_first_cell(xpoint,ypoint,interp.grids[i])
+      if cell>0
+         indices[1]=i
+         indices[2]=cell
+         break
+      end
+   end
+   return indices
+end
+
+"""
+   waterlevel_at_point = apply_index(index,map_slice,9999.0)
+Get the number at domain and index (given by index). The index is often the result of 
+the function find_index. If the cell index is [-1,-1] then the point is considered to
+be outside the area covered by the cells, eg on land, and then a default value is returned.
+"""
+function apply_index(index,map_slice,default_value=0.0)
+   if index[1]>0
+      return map_slice[index[1]][index[2]]
+   else
+      return default_value
+   end
+end
