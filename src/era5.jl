@@ -3,6 +3,14 @@
 # These routines are tested with data from the copernicus 
 # climate data store
 # For more see: https://cds.climate.copernicus.eu
+#
+# function EraData(path,filename)
+# function load_map_slice(data::EraData,varname,itime)
+# function get_reftime(data::EraData)
+# function get_times(data::EraData,reftime::DateTime)
+# function as_DateTime(data::EraData,reftime::DateTime,relative_time)
+# function initialize_interpolation(data::EraData,varname::String,reftime::DateTime,dummy=0.0)
+
 
 using NetCDF
 using Dates

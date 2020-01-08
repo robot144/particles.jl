@@ -3,8 +3,8 @@
 #
 
 # Base type for all grids
-abstract type Grid end
-abstract type SpaceGrid <: Grid end
-abstract type SpaceTimeGrid <: Grid end
+abstract type BaseGrid end
+abstract type SpaceGrid <: BaseGrid end
+abstract type SpaceTimeGrid <: BaseGrid end
 
 
