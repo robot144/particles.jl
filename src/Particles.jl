@@ -17,6 +17,8 @@ include("era5.jl") #support for ERA5 reanalysis data
 
 include("matroos_grid.jl") #support for 2d grids in NetCDF from Matroos 
 
+include("cmems_grid.jl") #support for 2d grids in NetCDF from CMEMS
+
 include("particles_core.jl") #support for background images downloaded with WMS
 
 #unstructured_grid.jl
@@ -36,6 +38,9 @@ export EraData, load_map_slice, get_reftime, get_times, as_DateTime, initialize_
 
 #matroos_grid.jl
 export MatroosData #already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
+
+#cmems_grid.jl
+export CmemsData #already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
 
 #particles_core.jl
 export default_userdata, run_simulation, print_times, plot_maps_xy, plot_maps_xz, index

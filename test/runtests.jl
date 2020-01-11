@@ -29,6 +29,10 @@ end
    include("test_matroos_grid.jl")
 end
 
+@testset "Read and interpolate NetCDF grid files from CMEMS" begin
+   include("test_cmems_grid.jl")
+end
+
 @testset "Particle core" begin
    include("test_particles_core.jl")
 end

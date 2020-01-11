@@ -3,6 +3,7 @@
 # These routines are tested with data from matroos.deltares.nl / matroos.rws.nl
 # 
 # For more see: https://matroos.rws.nl
+# or https://matroos.deltares.nl
 #
 # function MatroosData(path,filename)
 # function load_map_slice(data::MatroosData,varname,itime)

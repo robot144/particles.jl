@@ -16,7 +16,7 @@
 # function weights(xyt::CartesianXYTGrid,t)
 
 
-const debuglevel=3
+const debuglevel=1
 
 if !@isdefined(CartesianGrid)
 mutable struct CartesianGrid <: SpaceGrid
@@ -138,6 +138,7 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
    values::AbstractArray  #source array for interpolation
    name::String
    #
+   ndims::Int
    missing_value::Number #value used for non-valid values
    scaling::Float64
    offset::Float64
@@ -155,16 +156,23 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
       #keep 3 times in memmory
       time_cache=zeros(3)
       cache=Array{Any,1}(undef,3)
+      ndims=length(size(values))-1 #time does not count
       for ti=1:3
          time_cache[ti]=times[ti]
-         temp=values[:,:,ti]
+         if ndims==2
+            temp=values[:,:,ti]
+         elseif ndims==3
+            temp=values[:,:,:,ti] 
+         else
+            error("Ndims should be 2 or 3 for a cartesian xyt-grids for now")
+        end
          temp_scaled=offset.+scaling.*temp
          temp_scaled[temp.==missing_value].=NaN #use NaN for missing in cache
          cache[ti]=temp_scaled
       end
       time_cache_index=3 #index of last cached field in list of all available times
       (debuglevel>3) && println("Initial cache index=$(time_cache_index) ")
-      new(grid,times,values,name,missing_value,scaling,offset,cache,time_cache,time_cache_index)
+      new(grid,times,values,name,ndims,missing_value,scaling,offset,cache,time_cache,time_cache_index)
    end
 end
 #end #ifdef
@@ -174,7 +182,11 @@ slice = get_map_slice(xyt,ti)
 Get time slice of dataset referred to in xyt for time index ti.
 """
 function get_map_slice(xyt::CartesianXYTGrid,ti::Integer)
-   temp=xyt.values[:,:,ti]
+   if xyt.ndims==2
+      temp=xyt.values[:,:,ti]
+   elseif xyt.ndims==3
+      temp=xyt.values[:,:,:,ti]
+   end
    temp_scaled=xyt.offset.+xyt.scaling.*temp
    temp_scaled[temp.==xyt.missing_value].=NaN #use NaN for missing in cache
    return temp_scaled
@@ -244,8 +256,14 @@ function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::N
    update_cache(xyt,time)
    w=weights(xyt,time)
    value=0.0
-   for ti=1:3
-      value+=w[ti]*interpolate(xyt.grid,xpoint,ypoint,xyt.cache[ti],NaN)
+   if xyt.ndims==2
+      for ti=1:3
+         value+=w[ti]*interpolate(xyt.grid,xpoint,ypoint,xyt.cache[ti],NaN)
+      end
+   elseif xyt.ndims==3
+      for ti=1:3
+         value+=w[ti]*interpolate(xyt.grid,xpoint,ypoint,dropdims(xyt.cache[ti],dims=3),NaN)
+      end
    end
    if isnan(value)
       value=dummy
