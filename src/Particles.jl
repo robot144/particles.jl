@@ -15,6 +15,8 @@ include("dflow.jl") #support for forcing data from Delft3D-FM
 
 include("era5.jl") #support for ERA5 reanalysis data
 
+include("matroos_grid.jl") #support for 2d grids in NetCDF from Matroos 
+
 include("particles_core.jl") #support for background images downloaded with WMS
 
 #unstructured_grid.jl
@@ -31,6 +33,9 @@ export load_nc_info, load_dflow_grid, load_nc_var, load_nc_map_slice, find_index
 
 #era5.jl
 export EraData, load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
+
+#matroos_grid.jl
+export MatroosData #already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
 
 #particles_core.jl
 export default_userdata, run_simulation, print_times, plot_maps_xy, plot_maps_xz, index
