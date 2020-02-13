@@ -73,11 +73,11 @@ width=1000
 height=1000
 Plots.default(:size,[width,height])
 gebco_server=WmsServer("gebco") #gebco or emodnet-bathymetry or open-streetmap
-bbox=[-5.5,48.5,1.5,51.5] #area to plot min(Lon), min(Lat), max(Lon), max(Lat)
+plotbox=[-5.5,48.5,1.5,51.5] #area to plot min(Lon), min(Lat), max(Lon), max(Lat)
 
-img=get_map(gebco_server,bbox,width,height)
+img=get_map(gebco_server,plotbox,width,height)
 
-plot_image(img,bbox)
+plot_image(img,plotbox)
 
 plot!(t[1].Lon,t[1].Lat)
 plot!(t[2].Lon,t[2].Lat)
