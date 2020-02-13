@@ -1,5 +1,5 @@
 # csv files with some ship tracks from AIS through the English Channel on Feb 11-15 2019 and one on
-# Feb 27. 
+# Feb 27.
 # All tracks are eastbound.
 
 using DataFrames
