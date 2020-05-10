@@ -17,7 +17,7 @@ c.retrieve(
             'peak_wave_period', 'significant_height_of_combined_wind_waves_and_swell', 
             'significant_height_of_wind_waves', 'u_component_stokes_drift', 'v_component_stokes_drift', 
         ],
-        'area':'50/5/57/10',
+        'area':'57/5/50/10',
         'year':'2017',
         'month':['03','04'],
         'day':[
