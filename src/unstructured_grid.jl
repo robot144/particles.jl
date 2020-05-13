@@ -2,7 +2,7 @@
 using Test
 using NetCDF
 
-const debuglevel=3
+const debuglevel=1
 
 if !@isdefined(Grid)
 mutable struct Grid

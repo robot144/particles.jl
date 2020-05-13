@@ -21,10 +21,15 @@ p[1,:]=25000.0.+50.0*randn(n,1)
 p[2,:]=250.0.+50.0*randn(n,1)
 d["particles"]=p #initial values
 # simulation time
-d["dt"]=3600.0
+d["dt"]=360.0
 d["tstart"]=0.0
-d["tend"]=25*3600.0
-d["plot_maps_times"]=collect(0.0:3600.0:(25*3600.0))
+d["tend"]=24*3600.0
+#write to netcdf
+d["write_maps_times"]=collect(0.0:360.0:(24*3600.0))
+d["write_maps"]=true
+d["write_maps_filename"]="output_dflow_2d_estuary.nc"
+#write plots to file
+d["plot_maps_times"]=collect(0.0:3600.0:(24*3600.0))
 d["plot_maps"]=true
 
 
@@ -72,4 +77,5 @@ function plot_background(d)
 end
 d["plot_maps_background"]=plot_background
 
+println("Start with run_simulation(d) if it does not start automatically")
 nothing

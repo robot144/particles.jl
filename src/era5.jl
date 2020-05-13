@@ -15,7 +15,7 @@
 using NetCDF
 using Dates
 
-const debuglevel=3 #0-nothing, larger more output
+const debuglevel=1 #0-nothing, larger more output
 
 """
 Using the EraData struct the file-handling becomes object-oriented.
@@ -47,7 +47,11 @@ function load_map_slice(data::EraData,varname,itime)
    offset=data.file[varname].atts["add_offset"]
    dummy=data.file[varname].atts["missing_value"]
    if ndims==2
-      tempvar=dropdims(data.file[varname][:,:,itime],dims=3)
+      tempvar=data.file[varname][:,:,itime]
+      if length(size(tempvar))>2 # Starting somewhere around julia version 1.3 dimensions are dropped automatically when slicing
+         # this check can be removed some time in the future, when we assumen versions less than 1.4 are no longer in use
+         tempvar=dropdims(tempvar,dims=3)
+      end
       var=offset.+scale_factor.*tempvar
       var[tempvar.==dummy].=NaN
       return var

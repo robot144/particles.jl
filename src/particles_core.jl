@@ -142,7 +142,8 @@ function run_simulation(d)
    end
 
    if d["write_maps"]==true
-      NetCDF.close(nc_out)
+      #NetCDF.close(nc_out) #close was abandoned by NetCDF
+      finalize(nc_out)
    end
    
    #wait for user 

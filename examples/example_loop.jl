@@ -27,7 +27,7 @@ d["tend"]=2.5
 d["write_maps_times"]=collect(0.0:0.1:2.5)
 d["write_maps"]=true
 d["write_maps_filename"]="output_loop.nc"
-#plot to screen 
+#write plots to file
 d["plot_maps_times"]=collect(0.0:0.5:2.5)
 d["plot_maps"]=true
 
@@ -82,4 +82,5 @@ function plot_background(d)
 end
 d["plot_maps_background"]=plot_background
 
+println("Start with run_simulation(d) if it does not start automatically")
 nothing

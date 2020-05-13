@@ -22,6 +22,11 @@ d["particles"]=p #initial values
 d["dt"]=0.1
 d["tstart"]=0.0
 d["tend"]=90.0
+#write to netcdf
+d["write_maps_times"]=collect(0.0:1.0:90.0)
+d["write_maps"]=true
+d["write_maps_filename"]="output_2dv_sideview.nc"
+#write plots to file
 d["plot_maps_times"]=collect(0.0:10.0:90.0)
 d["plot_maps"]=true
 
@@ -58,4 +63,5 @@ end
 d["plot_maps_background"]=plot_background
 d["plot_maps_func"]=plot_maps_xz
 
+println("Start with run_simulation(d) if it does not start automatically")
 nothing

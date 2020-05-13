@@ -15,7 +15,7 @@
 using NetCDF
 using Dates
 
-const debuglevel=3 #0-nothing, larger more output
+const debuglevel=1 #0-nothing, larger more output
 
 """
 Using the CmemsData struct the file-handling becomes object-oriented.
@@ -47,7 +47,10 @@ function load_map_slice(data::CmemsData,varname,itime)
    offset=data.file[varname].atts["add_offset"]
    dummy=data.file[varname].atts["_FillValue"]
    if ndims==2
-      tempvar=dropdims(data.file[varname][:,:,itime],dims=3)
+      tempvar=data.file[varname][:,:,itime]
+      if length(size(tempvar))==3 # Starting around julia version 1.3 singleton dimensions are dropped automatically when slicing.
+         tempvar=dropdims(tempvar,dims=3)
+      end
       var=offset.+scale_factor.*tempvar
       var[tempvar.==dummy].=NaN
       return var

@@ -148,9 +148,8 @@ will appear in the right position.
 image
 bbox contains xmin ymin xmax ymax
 """
-function plot_image(image,boundingbox)
-   bbox=boundingbox
-   f=plot([bbox[1], bbox[3]], [bbox[2], bbox[4]], image[end:-1:1, :], yflip = false)
+function plot_image(image,boundbox)
+   f=plot(range(boundbox[1], boundbox[3],length=size(image,1)), range(boundbox[2], boundbox[4], length=size(image,2)), image[end:-1:1,:], size=(size(image,2),size(image,1)),yflip=false)
    return f
 end
 
