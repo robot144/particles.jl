@@ -6,7 +6,7 @@ drifternumber = 5;
 water_3d = true
 
 d=default_userdata()
-n=2                                                                              #Drfiter pos, using 2Dwwater, using 3d water, 2d jonswap, 3d jonswap, 2d 1.6% wind, 3d 1.6% wind
+n=1801                                                                              #Drfiter pos, using 2Dwwater, using 3d water, 2d jonswap, 3d jonswap, 2d 1.6% wind, 3d 1.6% wind
 
 d["nparticles"]=n
 d["coordinates"]="spherical"
@@ -165,12 +165,23 @@ function f!(ds,s,t,i,d)
       usJ, vsJ = uv_sJ(wh(x,y,z,t),wp(x,y,z,t),wd(x,y,z,t))
       (up,vp) = water_stokes_wind(ua,va, uw,vw,usJ,vsJ)
    end
-   K=2 # diffusivity constant [m^2/s]
-   # equation should be dX = V dt+sqrt(2K)N(0,dt)
-   # However, for now, we can only provide a velocity, so rewriting this equation into
-   # dX = (V+sqrt(2Kdt)N(0,1)/dt)dt
-   up += randn()*sqrt(2*K*dt)/dt
 
+   # Calculate and add turbulent diffusivity, using Pr=1
+   if i>1
+      # Estimate the Eddy viscosity and its derivates, using a Smagorinsky model
+      if water_3d
+         (K, Kdx, Kdy)=estimate_viscosity_smag(interp_3d, x,y,t,u_3d,v_3d)
+      else
+         (K, Kdx, Kdy)=estimate_viscosity_smag(interp_2d, x,y,t,u_2d,v_2d)
+      end
+      if !(uw==vw==ua==va==0.0)
+         # https://doi.org/10.1016/j.ocemod.2017.11.008 eq. 27
+         up += Kdy+randn()*sqrt(2*K*dt)/dt
+         vp += Kdx+randn()*sqrt(2*K*dt)/dt
+      end
+   end
+
+   # Convert the velocity in [m/s] to dlat and dlon for latitude and longitude
    ds[1] = dx   = rad2deg*up/(R*cos(deg2rad*s[2]))
    ds[2] = dy   = rad2deg*vp/R
    ds[3] = dage = 1.0

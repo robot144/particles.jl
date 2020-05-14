@@ -145,4 +145,63 @@ function track_of_drifter!(ds,s,t,t0,t_step,drifter)
 
    return ds, s
 end
+
+"""
+   (ν, dν/dx, dν/dy) = estimate_viscosity_smag(interp,x,y,t,u,v,default_value=1.0; vb=0.1,Sc=0.2,calc_derivatives=true)
+
+   Estimates the Eddy viscosity and its spatial derivates at a given point (x,y,t)
+   By default, it uses a background viscosity of 0.1 and a Smagorinsky coefficient of 0.1
+
+   This function is very inefficient as it has to interpolate the water velocities at different positions, to estimate the derivatives
+   If used more often, this should be sped up, e.g. use neighbouring cells.
+"""
+function estimate_viscosity_smag(interp,x,y,t,u,v,default_value=1.0; vb=0.1,Sc=0.1,calc_derivatives=true)
+   ind = find_index(interp, x, y)
+   if ind[1]==-1||ind[2]==-1
+      return (default_value,0.0,0.0)
+   end
+   corners = interp.grids[ind[1]].edges[ind[2],1:interp.grids[ind[1]].nnodes[ind[2]]]
+   xnode = interp.grids[ind[1]].xnodes[corners]
+   ynode = interp.grids[ind[1]].ynodes[corners]
+   dlon = maximum(xnode)-minimum(xnode)
+   dlat = maximum(ynode)-minimum(ynode)
+   z=0.0
+   u_cell = u(x,y,z,t)
+   v_cell = v(x,y,z,t)
+   if u_cell > 0
+      u_dx = u(x+dlon,y,z,t)-u_cell
+      v_dx = v(x+dlon,y,z,t)-v_cell
+   else
+      u_dx = u_cell-u(x-dlon,y,z,t)
+      v_dx = v_cell-v(x-dlon,y,z,t)
+   end
+   if v_cell > 0
+      u_dy = u(x,y+dlat,z,t)-u_cell
+      v_dy = v(x,y+dlat,z,t)-v_cell
+   else
+      u_dy = u_cell-u(x,y-dlat,z,t)
+      v_dy = v_cell-v(x,y-dlat,z,t)
+   end
+   R = 6371.0e3                                                                  # Mean radius of earth from wikipedia
+   deg2rad = pi/180.0                                                            # Converts degrees to radians
+   rad2deg = 180.0/pi
+   dx = deg2rad*R*cos(ynode[1]*deg2rad)*dlon #in meters
+   dy = deg2rad*R*dlat                    #in meters
+   viscosity = vb + (Sc*sqrt(dx*dy))^2*sqrt(2*(u_dx/dx)^2+(u_dy/dy+v_dx/dx)^2+2*(v_dy/dy)^2)
+   if calc_derivatives
+      if u_cell>0
+         viscosity_dx = calcViscosity(interp,x+dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
+      else
+         viscosity_dx = viscosity-calcViscosity(interp,x-dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
+      end
+      if v_cell>0
+         viscosity_dy = calcViscosity(interp,x,y+dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
+      else
+         viscosity_dy = viscosity-calcViscosity(interp,x,y-dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
+      end
+      return (viscosity, viscosity_dx/dx, viscosity_dy/dy)
+   else
+      return (viscosity,0.0,0.0)
+   end
+end
 nothing
