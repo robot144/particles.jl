@@ -33,10 +33,10 @@ d["plot_maps"]=false #turn off plotting in unit tests
 #test 3
 include(joinpath(exampledir,"example_dflow_2d_estuary.jl"))
 @test d["tstart"]==0.0
-@test d["tend"]≈(25*3600.0)
+@test d["tend"]≈(24*3600.0)
 d["plot_maps"]=false #turn off plotting in unit tests
 @eval run_simulation(d)
-@test d["particles"][4,1]≈(25*3600.0)
+@test d["particles"][4,1]≈(24*3600.0)
 
 #test 4
 if isfile(joinpath(testdatadir,"DCSM-FM_0_5nm_0019_map.nc"))
@@ -62,4 +62,3 @@ if isfile(joinpath(datadir,"DCSM-FM_0_5nm_0019_map.nc"))
 else
    println("No test data found for test example_dflow_2d_dcsm_20190101_15.jl")
 end
-
