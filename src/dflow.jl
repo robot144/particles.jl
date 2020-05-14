@@ -67,10 +67,26 @@ end
    waterlevel = load_nc_map_slice(map,"s1",1)
 Load data for a time-dependent variable for a specific time and for all domains.
 """
-function load_nc_map_slice(map,varname,itime)
+function load_nc_map_slice(map,varname,itime,sigma_layer_index=-1)
    result=[]
    for i=1:length(map)
-      push!(result,map[i][varname][:,itime])
+      # push!(result,map[i][varname][:,itime])
+      if ndims(map[i][varname])==2
+         push!(result,map[i][varname][:,itime])
+      elseif ndims(map[i][varname])==3
+         if sigma_layer_index > 0
+            # if sigma_layer_index <= size(map[i][varname])[1]
+               push!(result,map[i][varname][sigma_layer_index,:,itime])
+            # else
+            #    throw(BoundsError(map[i][varname], sigma_layer_index))
+            # end
+         else
+            #For now only the upper sigma layer
+            push!(result,map[i][varname][end,:,itime])
+         end
+      else
+         throw(ArgumentError("load_nc_map_slice has only supports 2/3 dimensions"))
+      end
    end
    return result
 end
@@ -122,7 +138,7 @@ end
 
 """
    t_ref = get_reftime(map)
-Read the reference time from the attributes of time in the netcdf file. 
+Read the reference time from the attributes of time in the netcdf file.
 Times are described by a reference time (DateTime type) and the number of hours
 relative to this t_ref.
 """
@@ -159,33 +175,29 @@ function as_DateTime(reftime::DateTime,relative_time)
 end
 
 """
-   u,v=initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=-9999.0)
+   u,v=initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=-9999.0)
 
-Create interpolation functions for x and y (lon and lat) directions of the flow. 
+Create interpolation functions for x and y (lon and lat) directions of varname in dflow_map.
 The reftime can be chosen freely independent of the reftime in the input files.
-""" 
-function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=0.0)
-   println("initialize caching for $(dflow_map[1].name) ...")
-   map_cache=dflow_map
-   interp_cache=interp
-   dumval_cache=dumval
-   reftime_cache=reftime
-   times_cache=get_times(map_cache,reftime_cache)
-   #keep 3 times in memmory
+"""
+
+function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=0.0)
+   println("initialize caching for $(dflow_map[1].name) $varname...")
+   # map_cache=dflow_map
+   # interp_cache=interp
+   # dumval_cache=dumval
+   # reftime_cache=reftime
+   times_cache=get_times(dflow_map,reftime)
+   #keep 3 times in memory
    time_cache=zeros(3)
-   u_cache=Array{Any,1}(undef,3)
-   v_cache=Array{Any,1}(undef,3)
+   var_cache=Array{Any,1}(undef,3)
    initialized=false
-   ucx="ucx"
-   ucy="ucy"
-   if haskey(dflow_map[1].vars,"mesh2d_ucx")
-      ucx="mesh2d_ucx"
-      ucy="mesh2d_ucy"
+   if !haskey(dflow_map[1].vars,varname)
+      throw(ArgumentError("$varname is not a variable in the map"))
    end
    for ti=1:3
       time_cache[ti]=times_cache[ti]
-      u_cache[ti]=load_nc_map_slice(dflow_map,ucx,ti)
-      v_cache[ti]=load_nc_map_slice(dflow_map,ucy,ti)
+      var_cache[ti]=load_nc_map_slice(dflow_map,varname,ti)
    end
    time_cache_index=3 #index of last cached field in list of all available times
    (debuglevel>4) && println("Initial cache index=$(time_cache_index) ")
@@ -194,50 +206,33 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
        Refresh the cached fields if needed.
    """
    function update_cache(t)
-      ucx="ucx"
-      ucy="ucy"
-      if haskey(dflow_map[1].vars,"mesh2d_ucx")
-         ucx="mesh2d_ucx"
-         ucy="mesh2d_ucy"
-      end
       if (t>=time_cache[1])&&(t<=time_cache[3])
          (debuglevel>=2) && println("cache is okay")
-      elseif (t>=time_cache[2])&&(t<=times_cache[time_cache_index+1]) 
-         if(t>times_cache[end])
-            error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
-         end
+      elseif t>times_cache[end]
+         error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
+      elseif (t>=time_cache[2])&&(t<=times_cache[time_cache_index+1])
          (debuglevel>=2) && println("advance to next time")
-         u_cache[1]=u_cache[2]
-         u_cache[2]=u_cache[3]
-         u_cache[3]=load_nc_map_slice(dflow_map,ucx,time_cache_index+1)
-         v_cache[1]=v_cache[2]
-         v_cache[2]=v_cache[3]
-         v_cache[3]=load_nc_map_slice(dflow_map,ucy,time_cache_index+1)
          time_cache[1]=time_cache[2]
          time_cache[2]=time_cache[3]
          time_cache[3]=times_cache[time_cache_index+1]
+         var_cache[1]=var_cache[2]
+         var_cache[2]=var_cache[3]
+         var_cache[3]=load_nc_map_slice(dflow_map,varname,time_cache_index+1)
          time_cache_index+=1
+      elseif t<times_cache[1]
+         error("Trying to access before first map t=$(t) < $(times_cache[0])")
       else #complete refresh of cache
-         if(t>times_cache[end])
-            error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
-         end
-         if(t<times_cache[1])
-            error("Trying to access before first map t=$(t) < $(times_cache[0])")
-         end
          (debuglevel>=2) && println("refresh cache")
-         ti=findfirst(tt->tt>=t,times_cache)
+         ti=findfirst(tt->tt>t,times_cache)
          (debuglevel>=4) && println("ti=$(ti), t=$(t)")
          (debuglevel>=4) && println("$(times_cache)")
-         time_cache[1]=times_cache[ti]
-         time_cache[2]=times_cache[ti+1]
-         time_cache[3]=times_cache[ti+2]
-         u_cache[1]=load_nc_map_slice(dflow_map,ucx,ti)
-         u_cache[2]=load_nc_map_slice(dflow_map,ucx,ti+1)
-         u_cache[3]=load_nc_map_slice(dflow_map,ucx,ti+2)
-         v_cache[1]=load_nc_map_slice(dflow_map,ucy,ti)
-         v_cache[2]=load_nc_map_slice(dflow_map,ucy,ti+1)
-         v_cache[3]=load_nc_map_slice(dflow_map,ucy,ti+2)
-         time_cache_index=ti+2
+         time_cache[1]=times_cache[ti-1]
+         time_cache[2]=times_cache[ti]
+         time_cache[3]=times_cache[ti+1]
+         var_cache[1]=load_nc_map_slice(dflow_map,varname,ti-1)
+         var_cache[2]=load_nc_map_slice(dflow_map,varname,ti)
+         var_cache[3]=load_nc_map_slice(dflow_map,varname,ti+1)
+         time_cache_index=ti+1
       end
       (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
    end
@@ -256,35 +251,40 @@ function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTi
       end
    end
    #flow in x direction (for now has to be called u)
-   function u(x,y,z,t)
-      ind=find_index(interp_cache,x,y)
+   function f(x,y,z,t)
+      ind=find_index(interp,x,y)
       update_cache(t)
       w=weights(t)
       (debuglevel>3) && println("weights $(weights)")
       value=0.0
       for ti=1:3
-         temp=apply_index(ind,u_cache[ti],dumval_cache)
+         temp=apply_index(ind,var_cache[ti],dumval)
          value+=w[ti]*temp
          (debuglevel>4) && println(" add w*val = $(w[ti]) $(temp)")
       end
-      if abs(value)>100.0
-         println("u interpolation")
+      if abs(value)>100.0&&debuglevel>=2
+         println("$varname interpolation")
          println("w $(weights) : $(ind)")
       end
       return value
    end
-   #flow in y direction (for now has to be called v)
-   function v(x,y,z,t)
-      ind=find_index(interp_cache,x,y)
-      update_cache(t)
-      w=weights(t)
-      value=0.0
-      for ti=1:3
-         value+=w[ti]*apply_index(ind,v_cache[ti],dumval_cache)
-      end
-      return value
-   end
-   return (u,v)
+   return f
 end
 
+"""
+   u,v=initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=0.0)
 
+Create interpolation functions for x and y (lon and lat) directions of the flow.
+The reftime can be chosen freely independent of the reftime in the input files.
+"""
+function initialize_interpolation(dflow_map,interp::Interpolator,reftime::DateTime,dumval=0.0)
+   ucx="ucx"
+   ucy="ucy"
+   if haskey(dflow_map[1].vars,"mesh2d_ucx")
+      ucx="mesh2d_ucx"
+      ucy="mesh2d_ucy"
+   end
+   u = initialize_interpolation(dflow_map,interp,ucx,reftime,dumval)
+   v = initialize_interpolation(dflow_map,interp,ucy,reftime,dumval)
+   return u,v
+end
