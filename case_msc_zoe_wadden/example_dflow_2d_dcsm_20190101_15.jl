@@ -1,5 +1,5 @@
-# Test case with very simplified 2d estuary (essentially a channel with tidal boundary)
-# Reads flow data from netcdf map ouput files from delft3d-fm
+# A test rund with data (DCSM-FM 2D flowdata) for the MSC ZOE accident.
+#
 
 using Particles
 using Dates
@@ -32,7 +32,8 @@ d["reftime"]=DateTime(2019,01,01) #we use 2019-01-01 as refdate for this run
 h=3600.0 #seconds per hour
 d["dt"]=1800.0 #seconds
 d["tstart"]=0.0*h
-d["tend"]=14.0*24.0*h
+#d["tend"]=14.0*24.0*h
+d["tend"]=2.0*24.0*h
 #write to netcdf
 d["write_maps_times"]=collect((0.0*h):(1.0*h):(14*24*h)) 
 d["write_maps"]=true
@@ -46,9 +47,9 @@ d["plot_maps"]=true
 Create model functions with a local scope.
 """
 function initialize_model(d)
-   datadir="data"
+   datadir="."
    if !isdir(datadir)
-      datadir="../data"
+      datadir="../testdata"
    end
    #get flow interpolation functions
    dflow_map=load_nc_info(datadir,r"DCSM-FM_0_5nm_...._map.nc")
