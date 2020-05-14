@@ -1,6 +1,6 @@
 # Interact with ERA5 netcdf output
 # basically these are lon-lat regular NetCDF files.
-# These routines are tested with data from the copernicus 
+# These routines are tested with data from the copernicus
 # climate data store
 # For more see: https://cds.climate.copernicus.eu
 #
@@ -24,8 +24,8 @@ mutable struct EraData
    file::NcFile
    #derived data
    grid::CartesianGrid
-   """ 
-   Constructor 
+   """
+   Constructor
    era_data = EraData(".","my_era_file.nc")
    """
    function EraData(path,filename)
@@ -62,7 +62,7 @@ end
 
 """
    t_ref = get_reftime(era_data)
-Read the reference time from the attributes of time in the netcdf file. 
+Read the reference time from the attributes of time in the netcdf file.
 Times are described by a reference time (DateTime type) and the number of hours
 relative to this t_ref.
 """
@@ -140,13 +140,13 @@ end
 p = initialize_interpolation(era,"msl",t0)
 Create an interpolation function p(x,y,z,t)
 """
-function initialize_interpolation(data::EraData,varname::String,reftime::DateTime,dummy=0.0)
+function initialize_interpolation(data::EraData,varname::String,reftime::DateTime,dummy=0.0,cache_direction::Symbol=:forwards)
    times=get_times(data,reftime)
    values=data.file.vars[varname] #TODO more checks
    missing_value=values.atts["missing_value"]
    scaling=values.atts["scale_factor"]
    offset=values.atts["add_offset"]
-   xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset)
+   xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset,cache_direction)
    function f(x,y,z,t)
       value=interpolate(xyt,x,y,t,dummy)
       return value

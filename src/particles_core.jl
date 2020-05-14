@@ -1,4 +1,4 @@
-# Shared routines for particle modelling. 
+# Shared routines for particle modelling.
 # No routines for specific data sources or particle model-equations should be included,
 # just the generic stuff goes here.
 
@@ -20,10 +20,11 @@ function default_userdata()
    d["tstart"]=0.0
    d["tend"]=1.0
    d["reftime"]=DateTime(2000,1,1) # Jan 1st 2000
-   d["coordinates"]="projected" #projected or spherical 
+   d["coordinates"]="projected" #projected or spherical
    d["nparticles"]=10 #number of particles
    d["variables"]=["x","y"] #recognized are x,y,lat,lon other variables are written with partial meta-data
    d["dumval"]=9999.0
+   d["time_direction"]=:forwards #:forwards or :backwards
    #plotting to screen
    d["plot_maps"]=false
    d["plot_maps_size"]=(1200,1000)
@@ -44,7 +45,7 @@ end
 
 """
    run_simulation(d)
-   Main simulation routine. The configuration is contained in Dict d, 
+   Main simulation routine. The configuration is contained in Dict d,
    which may contain call-backs for plotting etc.
 """
 function run_simulation(d)
@@ -62,9 +63,16 @@ function run_simulation(d)
 
    #simulation timespan
    tstart=d["tstart"]
-   t=tstart
    tend=d["tend"]
    tref=d["reftime"]
+   t=tstart
+	if d["time_direction"] == :forwards
+	   t=tstart
+	elseif d["time_direction"] == :backwards
+		t=tend
+	else
+		throw(ArgumentError("Unsupported variable d[time_direction]"))
+	end
 
    #initialize outputs
    target_times=Float64[]
@@ -97,7 +105,7 @@ function run_simulation(d)
       print_times(tref,write_maps_times)
       (nc_out,ncvars)=initialize_netcdf_output(d)
    end
-   
+
    #if the end time of the simulation is after the last output request
    #then still simulate until end times. TODO This is debatable.
    if((length(target_times)==0) || (target_times[end]<tend))
@@ -112,12 +120,20 @@ function run_simulation(d)
    print("interupt simulation for output at t=")
    print_times(tref,target_times)
    println("Simulation from time $(t) s to $(tend) s since $(tref) since $(tref)")
-   
+	if d["time_direction"]==:forwards
+		#nothing
+	elseif d["time_direction"]==:backwards
+		target_times=sort(target_times, rev=true)
+	end
    # simulate in pieces until next output-action
    for t_stop=target_times
       t_abs=tref+Second(round(t))
       t_stop_abs=tref+Second(round(t_stop))
-      println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0*(t_stop-tstart)/(tend-tstart))%")
+		if d["time_direction"] == :forwards
+			println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0*(t_stop-tstart)/(tend-tstart))%")
+		elseif d["time_direction"] == :backwards
+			println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0*(tend-t_stop)/(tend-tstart))%")
+		end
       t=simulate!(p,t,t_stop,d)
       if (d["plot_maps"]) && (t_stop in plot_maps_times)
          (debug_level>1) && println("plotting map output")
@@ -145,8 +161,8 @@ function run_simulation(d)
       #NetCDF.close(nc_out) #close was abandoned by NetCDF
       finalize(nc_out)
    end
-   
-   #wait for user 
+
+   #wait for user
    #if !isinteractive() #wait for user to kill final plot
    #   println("Type [enter] to finish script")
    #   readline()
@@ -166,17 +182,34 @@ function simulate!(p,t,t_stop,d)
    (m,n)=size(p) # no variables x no particles
    ds=@MVector zeros(length(variables))
    s=@MVector zeros(length(variables))
-   while(t<(t_stop-0.25*dt))
-      (debug_level>=2) && println("... t=$(t) < $(t_stop)")
-      for i=1:n
-         s[:]=p[:,i]
-         f(ds,s,t,i,d)
-         s+=ds*dt #Euler forward
-         #println("   $(i) $(s)")
-         p[:,i]=s[:]
-      end
-      t+=dt
-   end
+   if d["time_direction"]==:forwards
+	   while(t<(t_stop-0.25*dt))
+	      (debug_level>=2) && println("... t=$(t) < $(t_stop)")
+	      for i=1:n
+	         s[:]=p[:,i]
+	         f(ds,s,t,i,d)
+	         s.+=ds.*dt #Euler forward
+	         #println("   $(i) $(s)")
+	         p[:,i]=s[:]
+	      end
+	      t+=dt
+	   end
+	elseif d["time_direction"]==:backwards
+		while(t>(t_stop+0.25*dt))
+	      (debug_level>=2) && println("... t=$(t) > $(t_stop)")
+	      for i=1:n
+	         s[:]=p[:,i]
+	         f(ds,s,t,i,d)
+
+			 # I am still not quite sure of we should use += or -=
+			 # I think += is the way to go, and handle the velocity difference in the f(ds,s,t,i,d) function
+	         s.+=ds.*dt #Euler forward
+	         #println("   $(i) $(s)")
+	         p[:,i]=s[:]
+	      end
+	      t-=dt
+	   end
+	end
    return t
 end
 
@@ -192,7 +225,7 @@ end
 """
    i1 = index(2,[1,2,3,4])
    i2 = index("bob",["alex","bob","charlie"])
-   Find first occurrence of a variable in an array. 
+   Find first occurrence of a variable in an array.
    Returns nothing if the value is not found.
 """
 function index(var,vars)
@@ -227,7 +260,7 @@ function plot_maps_xz(fig,d,p)
 end
 
 function initialize_netcdf_output(d)
-   # file 
+   # file
    filedir=d["write_maps_dir"]
    filename=d["write_maps_filename"]
    fullfile=joinpath(filedir,filename)
@@ -260,7 +293,7 @@ function initialize_netcdf_output(d)
    dumval=d["dumval"]
    for vari=1:nvars
       varname=vars[vari]
-      varatts=Dict("long_name" => varname,"missing_value"=>dumval) 
+      varatts=Dict("long_name" => varname,"missing_value"=>dumval)
       if varname=="x"
           varatts["long_name"] = "x-coordinate"
           varatts["units"]     = "m"

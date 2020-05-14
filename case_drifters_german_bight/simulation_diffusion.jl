@@ -6,13 +6,13 @@ drifternumber = 5;
 water_3d = true
 
 d=default_userdata()
-n=1801                                                                              #Drfiter pos, using 2Dwwater, using 3d water, 2d jonswap, 3d jonswap, 2d 1.6% wind, 3d 1.6% wind
+n=1801
 
 d["nparticles"]=n
 d["coordinates"]="spherical"
-# d["bbox"] = [6.0,53.5,9.1,55.5]
-d["bbox"] = [9,53.5,12.5,58]                                                  # Where we expect particles
+d["bbox"] = [6.0,53.5,9.1,55.5]                                                 # Where we expect particles
 d["plot_maps_size"] = (1500,1000)
+d["time_direction"] = :forwards #:forwards or :backwards
 
 
 # Use different data directories, depending on the drifternumber and water_3d
@@ -47,23 +47,22 @@ else
    endtime = min(endtime, get_times(dflow_map_2d,t0)[end])
 end
 
-
-u_2d = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_ucx",t0,0.0);
-v_2d = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_ucy",t0,0.0);
-u_3d = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_ucx",t0,0.0);
-v_3d = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_ucy",t0,0.0);
-u_wind = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_windx",t0,0.0);
-v_wind = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_windy",t0,0.0);
+u_2d = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_ucx",t0,0.0,d["time_direction"]);
+v_2d = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_ucy",t0,0.0,d["time_direction"]);
+u_3d = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_ucx",t0,0.0,d["time_direction"]);
+v_3d = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_ucy",t0,0.0,d["time_direction"]);
+u_wind = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_windx",t0,0.0,d["time_direction"]);
+v_wind = initialize_interpolation(dflow_map_2d,interp_2d, "mesh2d_windy",t0,0.0,d["time_direction"]);
 # In the 3D maps of March/April, wind data is also provided, thus then we load this one
 # Else, we use the wind data from the 2D model (this should be equal)
 if drifternumber <=4
-   u_wind3 = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_windx",t0,0.0)
-   v_wind3 = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_windy",t0,0.0)
+   u_wind3 = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_windx",t0,0.0,d["time_direction"])
+   v_wind3 = initialize_interpolation(dflow_map_3d,interp_3d, "mesh2d_windy",t0,0.0,d["time_direction"])
 end
 
-wh=initialize_interpolation(matroos_data,"wave_height_hm0",t0,0.0)
-wp=initialize_interpolation(matroos_data,"wave_period_tm10",t0,0.0)
-wd=initialize_interpolation(matroos_data,"wave_dir_th0",t0,0.0)
+wh=initialize_interpolation(matroos_data,"wave_height_hm0",t0,0.0,d["time_direction"])
+wp=initialize_interpolation(matroos_data,"wave_period_tm10",t0,0.0,d["time_direction"])
+wd=initialize_interpolation(matroos_data,"wave_dir_th0",t0,0.0,d["time_direction"])
 
 variables=["lon","lat","age"]
 d["variables"]=variables
@@ -79,7 +78,7 @@ d["water_3d"] = water_3d
 d["reftime"] = t0
 d["dt"] = 300
 d["tstart"] = starttime
-d["tend"] = starttime+floor(Int64,(endtime-starttime)/d["dt"])*d["dt"]
+d["tend"] = endtime
 
 ###### Write to netcdf ######
 d["write_maps_times"] = collect(starttime:3600:endtime)                          # Time at which data should be written to netcdf
@@ -179,6 +178,10 @@ function f!(ds,s,t,i,d)
          up += Kdy+randn()*sqrt(2*K*dt)/dt
          vp += Kdx+randn()*sqrt(2*K*dt)/dt
       end
+   end
+   if d["time_direction"] == :backwards
+      up *= -1
+      vp *= -1
    end
 
    # Convert the velocity in [m/s] to dlat and dlon for latitude and longitude

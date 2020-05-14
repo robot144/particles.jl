@@ -1,7 +1,7 @@
 # Interact with gridded netcdf output from the Deltares/RWS Matroos database
 # The current implementation only considers lon-lat regular NetCDF files.
 # These routines are tested with data from matroos.deltares.nl / matroos.rws.nl
-# 
+#
 # For more see: https://matroos.rws.nl
 # or https://matroos.deltares.nl
 #
@@ -25,8 +25,8 @@ mutable struct MatroosData
    file::NcFile
    #derived data
    grid::CartesianGrid
-   """ 
-   Constructor 
+   """
+   Constructor
    matroos_data = MatroosData(".","my_matroos_file.nc")
    """
    function MatroosData(path,filename)
@@ -70,7 +70,7 @@ end
 
 """
    t_ref = get_reftime(matroos_data)
-Read the reference time from the attributes of time in the netcdf file. 
+Read the reference time from the attributes of time in the netcdf file.
 Times are described by a reference time (DateTime type) and the number of hours
 relative to this t_ref.
 """
@@ -148,13 +148,13 @@ end
 p = initialize_interpolation(matroos,"msl",t0)
 Create an interpolation function p(x,y,z,t)
 """
-function initialize_interpolation(data::MatroosData,varname::String,reftime::DateTime,dummy=0.0)
+function initialize_interpolation(data::MatroosData,varname::String,reftime::DateTime,dummy=0.0,cache_direction::Symbol=:forwards)
    times=get_times(data,reftime)
    values=data.file.vars[varname] #TODO more checks
    missing_value=values.atts["_FillValue"]
    scaling=values.atts["scale_factor"]
    offset=values.atts["add_offset"]
-   xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset)
+   xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset,cache_direction)
    function f(x,y,z,t)
       value=interpolate(xyt,x,y,t,dummy)
       return value

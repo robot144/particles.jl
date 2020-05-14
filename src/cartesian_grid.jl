@@ -63,7 +63,7 @@ end
    boolean_inbox=in_bbox(grid,xpoint,ypoint)
 """
 function in_bbox(grid::CartesianGrid,xpoint,ypoint)
-   result=( (xpoint>=grid.bbox[1]) && (xpoint<=grid.bbox[2]) 
+   result=( (xpoint>=grid.bbox[1]) && (xpoint<=grid.bbox[2])
 	 && (ypoint>=grid.bbox[3]) && (ypoint<=grid.bbox[4]) )
    return result
 end
@@ -146,12 +146,13 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
    cache::Array{Any,1}
    time_cache::Array{Float64,1}
    time_cache_index::Int64
+   cache_direction::Symbol
    #constructor
    """
    xyt=CartesianXYTGrid(grid,times,values,"pressure",missing_value,scaling=1.0,offset=0.0)
    Create an xyt item for space-time interpolation.
    """
-   function CartesianXYTGrid(grid::CartesianGrid,times::AbstractVector,values::AbstractArray,name::String,missing_value::Number,scaling=1.0,offset=0.0)
+   function CartesianXYTGrid(grid::CartesianGrid,times::AbstractVector,values::AbstractArray,name::String,missing_value::Number,scaling=1.0,offset=0.0,cache_direction::Symbol=:forwards)
       (debuglevel>3) && println("initialize CartesianXYTGrid.")
       #keep 3 times in memmory
       time_cache=zeros(3)
@@ -162,7 +163,7 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
          if ndims==2
             temp=values[:,:,ti]
          elseif ndims==3
-            temp=values[:,:,:,ti] 
+            temp=values[:,:,:,ti]
          else
             error("Ndims should be 2 or 3 for a cartesian xyt-grids for now")
         end
@@ -172,7 +173,10 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
       end
       time_cache_index=3 #index of last cached field in list of all available times
       (debuglevel>3) && println("Initial cache index=$(time_cache_index) ")
-      new(grid,times,values,name,ndims,missing_value,scaling,offset,cache,time_cache,time_cache_index)
+	  if cache_direction!=:forwards&&cache_direction!=:backwards
+		  error("Unexpected symbol for cache_direction, $cache_direction not supported")
+	  end
+      new(grid,times,values,name,ndims,missing_value,scaling,offset,cache,time_cache,time_cache_index,cache_direction)
    end
 end
 #end #ifdef
@@ -199,7 +203,7 @@ Advance cache to time t. Updating the content of xyt if necessary.
 function update_cache(xyt::CartesianXYTGrid,t)
    if (t>=xyt.time_cache[1])&&(t<=xyt.time_cache[3])
       (debuglevel>=2) && println("cache is okay")
-   elseif (t>=xyt.time_cache[2])&&(t<=xyt.times[xyt.time_cache_index+1]) 
+   elseif (t>=xyt.time_cache[2])&&(t<=xyt.times[xyt.time_cache_index+1])
       if(t>xyt.times[end])
          error("Trying to access beyond last map t=$(t) > $(xyt.times_cache[end])")
       end
@@ -234,11 +238,55 @@ function update_cache(xyt::CartesianXYTGrid,t)
 end
 
 """
+update_cache_backwards(xyt,t)
+Advance cache to time t backwards in time. Updating the content of xyt if necessary.
+"""
+function update_cache_backwards(xyt::CartesianXYTGrid,t)
+   if (t>=xyt.time_cache[1])&&(t<=xyt.time_cache[3])
+      (debuglevel>=2) && println("cache is okay")
+   elseif (t>=xyt.time_cache[2])&&(t<=xyt.times[xyt.time_cache_index+1])
+      if(t>xyt.times[end])
+         error("Trying to access beyond last map t=$(t) > $(xyt.times_cache[end])")
+      end
+      (debuglevel>=2) && println("advance to next time")
+      xyt.cache[3]=xyt.cache[2]
+      xyt.cache[2]=xyt.cache[1]
+      xyt.cache[1]=get_map_slice(xyt,xyt.time_cache_index-1)
+      xyt.time_cache[3]=xyt.time_cache[2]
+      xyt.time_cache[2]=xyt.time_cache[1]
+      xyt.time_cache[1]=xyt.times[xyt.time_cache_index-1]
+      xyt.time_cache_index-=1
+   else #complete refresh of cache
+      if(t>xyt.times[end])
+         error("Trying to access beyond last map t=$(t) > $(xyt.times[end])")
+      end
+      if(t<xyt.times[1])
+         error("Trying to access before first map t=$(t) < $(xyt.times[1])")
+      end
+      (debuglevel>=2) && println("refresh cache")
+      ti=findfirst(tt->tt>t,xyt.times)
+      (debuglevel>=4) && println("ti=$(ti), t=$(t)")
+      (debuglevel>=4) && println("$(xyt.times)")
+      xyt.time_cache[1]=xyt.times[ti-2]
+      xyt.time_cache[2]=xyt.times[ti-1]
+      xyt.time_cache[3]=xyt.times[ti]
+      xyt.cache[1]=get_map_slice(xyt,ti-2)
+      xyt.cache[2]=get_map_slice(xyt,ti-1)
+      xyt.cache[3]=get_map_slice(xyt,ti)
+      xyt.time_cache_index=ti-2
+   end
+   (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+end
+
+"""
 (w1,w2,w3) = weights(xyt,t)
 Compute weights for (linear) time interpolation to time t based on 3 cached times
 This function assumes that the cache is up-to-date.
 """
 function weights(xyt::CartesianXYTGrid,t)
+	if t<xyt.time_cache[1]||t>xyt.time_cache[3]
+		throw(ArgumentError("t outside cached time"))
+	end
    if (t>xyt.time_cache[2])
       w=(t-xyt.time_cache[2])/(xyt.time_cache[3]-xyt.time_cache[2])
       return (0.0,(1.0-w),w)
@@ -250,10 +298,14 @@ end
 
 """
 value = interpolate(xyt,x,y,t,0.0)
-Interpolate in space and time.   
+Interpolate in space and time.
 """
 function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::Number,dummy=0.0)
-   update_cache(xyt,time)
+   if xyt.cache_direction==:forwards
+	    update_cache(xyt,time)
+   elseif xyt.cache_direction==:backwards
+    	update_cache_backwards(xyt,time)
+   end
    w=weights(xyt,time)
    value=0.0
    if xyt.ndims==2
@@ -270,4 +322,3 @@ function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::N
    end
    return value
 end
-

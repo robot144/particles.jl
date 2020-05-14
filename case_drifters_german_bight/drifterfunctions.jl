@@ -153,7 +153,8 @@ end
    By default, it uses a background viscosity of 0.1 and a Smagorinsky coefficient of 0.1
 
    This function is very inefficient as it has to interpolate the water velocities at different positions, to estimate the derivatives
-   If used more often, this should be sped up, e.g. use neighbouring cells.
+   If used more often, this should be sped up, e.g. use neighbouring cells. Now, using this function for each particle i, the runtime
+   is slowed down by approximately for times, as there are 4 times as much interpolation request f(x,y,z,t)
 """
 function estimate_viscosity_smag(interp,x,y,t,u,v,default_value=1.0; vb=0.1,Sc=0.1,calc_derivatives=true)
    ind = find_index(interp, x, y)
@@ -190,14 +191,14 @@ function estimate_viscosity_smag(interp,x,y,t,u,v,default_value=1.0; vb=0.1,Sc=0
    viscosity = vb + (Sc*sqrt(dx*dy))^2*sqrt(2*(u_dx/dx)^2+(u_dy/dy+v_dx/dx)^2+2*(v_dy/dy)^2)
    if calc_derivatives
       if u_cell>0
-         viscosity_dx = calcViscosity(interp,x+dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
+         viscosity_dx = estimate_viscosity_smag(interp,x+dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
       else
-         viscosity_dx = viscosity-calcViscosity(interp,x-dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
+         viscosity_dx = viscosity-estimate_viscosity_smag(interp,x-dlon,y,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
       end
       if v_cell>0
-         viscosity_dy = calcViscosity(interp,x,y+dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
+         viscosity_dy = estimate_viscosity_smag(interp,x,y+dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]-viscosity
       else
-         viscosity_dy = viscosity-calcViscosity(interp,x,y-dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
+         viscosity_dy = viscosity-estimate_viscosity_smag(interp,x,y-dlat,t,u,v,default_value; vb=vb,Sc=Sc,calc_derivatives=false)[1]
       end
       return (viscosity, viscosity_dx/dx, viscosity_dy/dy)
    else

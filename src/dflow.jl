@@ -175,13 +175,13 @@ function as_DateTime(reftime::DateTime,relative_time)
 end
 
 """
-   u,v=initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=-9999.0)
+   u,v=initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=0.0,cache_direction::Symbol=:forwards)
 
 Create interpolation functions for x and y (lon and lat) directions of varname in dflow_map.
 The reftime can be chosen freely independent of the reftime in the input files.
 """
 
-function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=0.0)
+function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime::DateTime,dumval=0.0,cache_direction::Symbol=:forwards)
    println("initialize caching for $(dflow_map[1].name) $varname...")
    # map_cache=dflow_map
    # interp_cache=interp
@@ -202,10 +202,10 @@ function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime
    time_cache_index=3 #index of last cached field in list of all available times
    (debuglevel>4) && println("Initial cache index=$(time_cache_index) ")
    """
-       update_cache(t)
-       Refresh the cached fields if needed.
+       update_cache_forwards(t)
+       Refresh the cached fields in the forwards time directions if needed.
    """
-   function update_cache(t)
+   function update_cache_forwards(t)
       if (t>=time_cache[1])&&(t<=time_cache[3])
          (debuglevel>=2) && println("cache is okay")
       elseif t>times_cache[end]
@@ -236,12 +236,53 @@ function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime
       end
       (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
    end
+
+   """
+       update_cache_backwards(t)
+       Refresh the cached fields in the backwards time direction if needed.
+   """
+   function update_cache_backwards(t)
+      if (t>=time_cache[1])&&(t<=time_cache[3])
+         (debuglevel>=2) && println("cache is okay")
+      elseif t<times_cache[1]
+         error("Trying to access before first map t=$(t) < $(times_cache[1])")
+      elseif (t<=time_cache[2])&&(t>=times_cache[time_cache_index-1])
+         (debuglevel>=2) && println("advance to next time")
+         time_cache[3]=time_cache[2]
+         time_cache[2]=time_cache[1]
+         time_cache[1]=times_cache[time_cache_index-1]
+         var_cache[3]=var_cache[2]
+         var_cache[2]=var_cache[1]
+         var_cache[1]=load_nc_map_slice(dflow_map,varname,time_cache_index-1)
+         time_cache_index-=1
+      elseif t>times_cache[end]
+         error("Trying to access beyond last map t=$(t) > $(times_cache[end])")
+      else #complete refresh of cache
+         (debuglevel>=2) && println("refresh cache")
+         ti=findfirst(tt->tt>t,times_cache)
+         (debuglevel>=4) && println("ti=$(ti), t=$(t)")
+         (debuglevel>=4) && println("$(times_cache)")
+         time_cache[1]=times_cache[ti-2]
+         time_cache[2]=times_cache[ti-1]
+         time_cache[3]=times_cache[ti]
+         var_cache[1]=load_nc_map_slice(dflow_map,varname,ti-2)
+         var_cache[2]=load_nc_map_slice(dflow_map,varname,ti-1)
+         var_cache[3]=load_nc_map_slice(dflow_map,varname,ti)
+         time_cache_index=ti-2
+      end
+      (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+      initialized=true
+   end
+
    """
        (w1,w2,w3) = weights(t)
        Compute weights for (linear) time interpolation to time t based on 3 cached times
        This function assumes that the cache is up-to-date.
    """
    function weights(t)
+   	if t<time_cache[1]||t>time_cache[3]
+   		throw(ArgumentError("t outside cached time"))
+   	end
       if (t>time_cache[2])
          w=(t-time_cache[2])/(time_cache[3]-time_cache[2])
          return (0.0,(1.0-w),w)
@@ -253,7 +294,11 @@ function initialize_interpolation(dflow_map,interp::Interpolator,varname,reftime
    #flow in x direction (for now has to be called u)
    function f(x,y,z,t)
       ind=find_index(interp,x,y)
-      update_cache(t)
+      if cache_direction==:forwards
+         update_cache_forwards(t)
+      elseif cache_direction==:backwards
+         update_cache_backwards(t)
+      end
       w=weights(t)
       (debuglevel>3) && println("weights $(weights)")
       value=0.0
