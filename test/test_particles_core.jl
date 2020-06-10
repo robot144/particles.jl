@@ -8,10 +8,6 @@ testdatadir=joinpath(pwd(),"test_data")
 if !isdir(testdatadir)
    testdatadir=joinpath("..","test_data")
 end
-datadir=joinpath(pwd(),"data")
-if !isdir(datadir)
-   datadir=joinpath("..","data")
-end
 
 #test 1
 include(joinpath(exampledir,"example_loop.jl"))
