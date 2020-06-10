@@ -13,7 +13,7 @@ x=range(x[1],x[end],length=length(x)) #remove slight differences in grid size
 y=range(y[1],y[end],length=length(y))
 t0=get_reftime(cmems)
 times=get_times(cmems,t0)
-ti=1
+ti=16
 uice=load_map_slice(cmems,"usi",ti) #sea ice velocity eastward
 vice=load_map_slice(cmems,"vsi",ti) #sea ice velocity northward
 cice=load_map_slice(cmems,"siconc",ti) #sea ice concentration
@@ -26,8 +26,8 @@ temp=zeros(size(landice))
 temp[.!landice].=NaN
 
 #background
-width=1000
-height=1000
+width=1600
+height=800
 Plots.default(:size,[width,height])
 gebco_server=WmsServer("gebco")
 bbox=[0.0,70.0,40.0,85.0]
