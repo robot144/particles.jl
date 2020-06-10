@@ -50,15 +50,3 @@ else
    println("No test data found for test example_dflow_2d_dcsm.jl")
 end
 
-#test 5
-if isfile(joinpath(datadir,"DCSM-FM_0_5nm_0019_map.nc"))
-   include(joinpath(exampledir,"example_dflow_2d_dcsm_20190101_15.jl"))
-   d["tend"]=(24*3600.0)
-   @test d["tstart"]≈(0*3600.0)
-   @test d["tend"]≈(24*3600.0)
-   d["plot_maps"]=false #turn off plotting in unit tests
-   @eval run_simulation(d)
-   @test d["particles"][3,1]≈(24*3600.0)
-else
-   println("No test data found for test example_dflow_2d_dcsm_20190101_15.jl")
-end
