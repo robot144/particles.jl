@@ -274,7 +274,7 @@ function initialize_netcdf_output(d)
    end
    # time
    t0=d["reftime"]
-   time_atts = Dict("units" => "seconds since $(Dates.format(t0,"yyyy-mm-dd HH:MMM:SS"))",
+   time_atts = Dict("units" => "seconds since $(Dates.format(t0,"yyyy-mm-dd HH:MM:SS"))",
                     "standard_name" => "time", "long_name" => "time",
 		    "comment" => "unspecified time zone", "calendar" => "gregorian" )
    map_times=collect(d["write_maps_times"])
