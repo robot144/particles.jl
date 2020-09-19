@@ -274,40 +274,53 @@ function initialize_netcdf_output(d)
    end
    # time
    t0=d["reftime"]
-   time_atts = Dict("units" => "seconds since $(Dates.format(t0,"yyyy-mm-dd HH:MM:SS"))",
-                    "standard_name" => "time", "long_name" => "time",
-		    "comment" => "unspecified time zone", "calendar" => "gregorian" )
+   #time_atts = Dict("units" => "seconds since $(Dates.format(t0,"yyyy-mm-dd HH:MM:SS"))",
+   #                 "standard_name" => "time", "long_name" => "time",
+   #                 "comment" => "unspecified time zone", "calendar" => "gregorian" )
+   time_atts = Dict("units" => "seconds since $(Dates.format(t0,"yyyy-mm-dd HH:MM:SS")).0",
+                    "standard_name" => "time", "long_name" => "UTC: 1 Hz",
+	            "comment" => "unspecified time zone", "calendar" => "gregorian" )
    map_times=collect(d["write_maps_times"])
    time_dim = NcDim("time", map_times, time_atts)
    # particle
    npart=d["nparticles"]
    vars=d["variables"]
    nvars=length(vars)
-   part_atts = Dict("long_name" => "particle id")
+   part_atts = Dict("long_name" => "particle id","units"=>"1")
    part_dim = NcDim("particles", collect(1:1:npart), part_atts)
 
    #global attributes
-   gatts=Dict("title"=>"Output of particle model")
+   gatts=Dict("title"=>"Output of particle model","Conventions"=>"CF-1.7")
 
    myvars=[]
    dumval=d["dumval"]
    for vari=1:nvars
       varname=vars[vari]
-      varatts=Dict("long_name" => varname,"missing_value"=>dumval)
+      varatts=Dict("long_name" => varname,"missing_value"=>Float64(dumval))
       if varname=="x"
           varatts["long_name"] = "x-coordinate"
+          varatts["standard_name"] = "projection_x_coordinate"
           varatts["units"]     = "m"
       elseif varname=="y"
           varatts["long_name"] = "y-coordinate"
+          varatts["standard_name"] = "projection_y_coordinate"
           varatts["units"]     = "m"
       elseif varname=="lon"
           varatts["long_name"] = "Longitude"
-          varatts["units"]     = "degrees east"
+          varatts["standard_name"] = "longitude"
+          varatts["units"]     = "degrees_east"
       elseif varname=="lat"
           varatts["long_name"] = "Latitude"
-          varatts["units"]     = "degrees north"
+          varatts["standard_name"] = "latitude"
+          varatts["units"]     = "degrees_north"
+      elseif varname=="age"
+          varatts["long_name"] = "Age of particles"
+          varatts["units"]     = "s"
+          varatts["coordinates"]= "lon lat"
+      else
+          varatts["coordinates"]= "lon lat"
       end
-      myvar = NcVar(varname, [part_dim, time_dim], atts=varatts, t=Float32)
+      myvar = NcVar(varname, [part_dim, time_dim], atts=varatts, t=Float64)
 
       push!(myvars,myvar)
    end
