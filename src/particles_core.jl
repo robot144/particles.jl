@@ -39,6 +39,7 @@ function default_userdata()
    d["write_maps"]=false
    d["write_maps_times"]=[]
    d["write_maps_dir"]="."
+   d["write_maps_as_series"]=true
    d["write_maps_filename"]="output.nc"
    return d
 end
@@ -147,12 +148,19 @@ function run_simulation(d)
 	 savefig(fig1,joinpath(d["plot_maps_folder"],@sprintf("%s_%9.9f.png",prefix,t)))
       end
       if (d["write_maps"]) && (t_stop in write_maps_times)
+         write_maps_as_series=d["write_maps_as_series"]
          timei=findfirst(x->x==t_stop,write_maps_times)
          for vari=1:nvars
             varname=vars[vari]
-            start=[1,timei] #part x time
-            count=[npart,1]
-            NetCDF.putvar(ncvars[vari], p[vari,:]; start=start, count=count)
+            if write_maps_as_series
+               start=[timei,1] #part x time
+               count=[1,npart]
+               NetCDF.putvar(ncvars[vari], collect(p[vari,:]'); start=start, count=count)
+            else
+               start=[1,timei] #part x time
+               count=[npart,1]
+               NetCDF.putvar(ncvars[vari], p[vari,:]; start=start, count=count)
+            end
          end
       end
    end
@@ -260,6 +268,11 @@ function plot_maps_xz(fig,d,p)
 end
 
 function initialize_netcdf_output(d)
+   # write as series (loc,time) or maps (times,locs)
+   write_maps_as_series=true #default
+   if haskey(d,"write_maps_as_series")
+      write_maps_as_series=d["write_maps_as_series"]
+   end 
    # file
    filedir=d["write_maps_dir"]
    filename=d["write_maps_filename"]
@@ -323,7 +336,11 @@ function initialize_netcdf_output(d)
       else
           varatts["coordinates"]= "time lat lon"
       end
-      myvar = NcVar(varname, [part_dim, time_dim], atts=varatts, t=Float64)
+      if write_maps_as_series
+         myvar = NcVar(varname, [time_dim, part_dim], atts=varatts, t=Float64)
+      else
+         myvar = NcVar(varname, [part_dim, time_dim], atts=varatts, t=Float64)
+      end
 
       push!(myvars,myvar)
    end
@@ -334,8 +351,13 @@ function initialize_netcdf_output(d)
    for vari=1:nvars
       varname=vars[vari]
       start=[1,1] #part x time
-      count=[npart,1]
-      NetCDF.putvar(myvars[vari], p[vari,:]; start=start, count=count)
+      if write_maps_as_series
+         count=[1,npart]
+         NetCDF.putvar(myvars[vari], collect(p[vari,:]'); start=start, count=count)
+      else
+         count=[npart,1]
+         NetCDF.putvar(myvars[vari], p[vari,:]; start=start, count=count)
+      end
    end
 
    return (nc,myvars)
