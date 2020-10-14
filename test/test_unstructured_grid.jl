@@ -80,7 +80,7 @@ function test2()
    (m,n)=size(cells)
    @test m==401
    @test n==501
-   @printf("cells[200,200]=%d\n",cells[200,200])
+   println("cells[200,200]=$(cells[200,200])")
    @test cells[200,200]==1
 end
 
@@ -113,7 +113,7 @@ function test3()
    cells0=find_cells(xpoints0,ypoints0,grid0)
    wl_interp0=zeros(Float64,size(cells0))
    get_values_by_cells!(wl_interp0,cells0,waterlevel0)
-   @printf("maximum(wl_interp0)=%f\n",maximum(wl_interp0))
+   println("maximum(wl_interp0)=$(maximum(wl_interp0))")
    @test abs(maximum(wl_interp0)-0.12916)<1e-3
    #return (xpoints0,ypoints0,wl_interp0)
 end
@@ -131,7 +131,7 @@ function test4(nmin=50)
       edges_temp=map[i].vars["NetElemNode"][:,:]'
       xnodes_temp=map[i].vars["NetNode_x"][:]
       ynodes_temp=map[i].vars["NetNode_y"][:]
-      @printf("- index computation\n")
+      println("- index computation")
       @time grid_temp=Grid(xnodes_temp,ynodes_temp,edges_temp,nmin)
       dump(grid_temp)
       add_grid!(interp,grid_temp)
@@ -146,13 +146,13 @@ function test4(nmin=50)
    waterlevel=[]
    push!(waterlevel,waterlevel0)
    push!(waterlevel,waterlevel1)
-   @printf("1 - compute new weights\n")
+   println("1 - compute new weights")
    @time wl_interp=interpolate(interp,xpoints,ypoints,waterlevel)
-   @printf("2 - use existing weights\n")
+   println("2 - use existing weights")
    @time wl_interp=interpolate(interp,xpoints,ypoints,waterlevel)
-   #@printf("3 - compute new weights\n")
+   #println("3 - compute new weights")
    #@time wl_interp2=interpolate(interp,xpoints2,ypoints2,waterlevel)
-   #@printf("4 - use existing weights\n")
+   #prinln("4 - use existing weights")
    #@time wl_interp2=interpolate(interp,xpoints2,ypoints2,waterlevel)
    (m,n)=size(wl_interp)
    @test m==length(xpoints)
@@ -174,7 +174,7 @@ function test5(nmin)
       edges_temp=map[i].vars["NetElemNode"][:,:]'
       xnodes_temp=map[i].vars["NetNode_x"][:]
       ynodes_temp=map[i].vars["NetNode_y"][:]
-      @printf("- index computation\n")
+      println("- index computation")
       @time grid_temp=Grid(xnodes_temp,ynodes_temp,edges_temp,nmin,true)
       #dump(grid_temp)
       add_grid!(interp,grid_temp)

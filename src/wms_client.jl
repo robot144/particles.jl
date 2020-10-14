@@ -1,3 +1,4 @@
+Nothing
 
 using HTTP
 using Base64
@@ -154,3 +155,4 @@ function plot_image(image,boundbox)
    return f
 end
 
+Nothing
