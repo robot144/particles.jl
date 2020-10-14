@@ -1,5 +1,5 @@
-
 module Particles
+# Main modules for Particles.jl
 
 using NetCDF
 
