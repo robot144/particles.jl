@@ -141,20 +141,16 @@ function run_simulation(d)
 			println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (tend - t_stop) / (tend - tstart))%")
 		end
         t = simulate!(p, t, t_stop, d)
-        # particles = copy(p)
         if (d["plot_maps"]) && (t_stop in plot_maps_times)
-            # task = @task begin
             (debug_level > 1) && println("plotting map output")
             Plots.default(:size, d["plot_maps_size"])
             fig1 = d["plot_maps_background"](d)
-            d["plot_maps_func"](fig1, d, particles)
+            d["plot_maps_func"](fig1, d, p)
             # sleep(1)
             title!(fig1, "time $(t_stop_abs) : t=$(t_stop)")
             # gui(fig1) #force display to screen
 	        prefix = d["plot_maps_prefix"]
 	        savefig(fig1, joinpath(d["plot_maps_folder"], @sprintf("%s_%9.9f.png",prefix,t)))
-            # end
-            # schedule(task)
         end
         if (d["write_maps"]) && (t_stop in write_maps_times)
             write_maps_as_series = d["write_maps_as_series"]

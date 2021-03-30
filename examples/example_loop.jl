@@ -7,7 +7,7 @@ using Plots
 # collected configuration is in Dict d
 d = default_userdata() # start with some defaults
 # settings for this experiment
-n = 30 # number of particles
+n = 60 # number of particles
 d["nparticles"] = n
 # all variables for one particle are collected in a vector
 variables = ["x", "y", "z", "age"]
@@ -24,7 +24,7 @@ d["particles"] = p # initial values
 # simulation time
 d["dt"] = 0.01
 d["tstart"] = 0.0
-d["tend"] = 2.5
+d["tend"] = 10
 # write to netcdf
 d["write_maps_times"] = collect(0.0:0.1:2.5)
 d["write_maps"] = true
