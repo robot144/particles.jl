@@ -10,7 +10,7 @@ d = default_userdata() # start with some defaults
 n = 30 # number of particles
 d["nparticles"] = n
 # all variables for one particle are collected in a vector
-variables = ("x", "y", "z", "age")
+variables = ["x", "y", "z", "age"]
 d["variables"] = variables
 # initial position of the particles
 m = length(variables)
@@ -24,14 +24,14 @@ d["particles"] = p # initial values
 # simulation time
 d["dt"] = 0.01
 d["tstart"] = 0.0
-d["tend"] = 10.0
+d["tend"] = 2.5
 # write to netcdf
 d["write_maps_times"] = collect(0.0:0.1:2.5)
-d["write_maps"] = false
+d["write_maps"] = true
 d["write_maps_filename"] = "output_loop.nc"
 # write plots to file
 d["plot_maps_times"] = collect(0.0:0.5:2.5)
-d["plot_maps"] = false
+d["plot_maps"] = true
 # d["f"] = f!
 
 # forcing currents stream (used only for plotting here) , u and v
@@ -70,20 +70,22 @@ function f!(∂s, s, t, i, d)
 end
 d["f"] = f!
 
-# function plot_background(d)
-#    # streamfunction for plot
-#     x1 = 0.0:0.01:1.0
-#     y1 = 0.0:0.01:1.0
-#     flow = zeros(length(x1), length(y1))
-#     for i = 1:length(x1)
-#         for j = 1:length(y1)
-#             flow[i,j] = stream(x1[i], y1[j], 0.0, 0.0)
-#         end
-#     end
-#     f = contour(x1, y1, flow', legend=false)
-#     return(f)
-# end
-# d["plot_maps_background"] = plot_background
+function plot_background(d)
+   # streamfunction for plot
+    x1 = 0.0:0.01:1.0
+    y1 = 0.0:0.01:1.0
+    flow = zeros(length(x1), length(y1))
+    for i = 1:length(x1)
+        for j = 1:length(y1)
+            flow[i,j] = stream(x1[i], y1[j], 0.0, 0.0)
+        end
+    end
+    f = contour(x1, y1, flow', legend=false)
+    return(f)
+end
+d["plot_maps_background"] = plot_background
 
 println("Start with run_simulation(d) if it does not start automatically")
+run_simulation(d)
 @time run_simulation(d)
+nothing

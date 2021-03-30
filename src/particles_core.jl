@@ -135,13 +135,13 @@ function run_simulation(d)
     for t_stop = target_times
         t_abs = tref + Second(round(t))
         t_stop_abs = tref + Second(round(t_stop))
-		# if d["time_direction"] == :forwards
-			# println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (t_stop - tstart) / (tend - tstart))%")
-		# elseif d["time_direction"] == :backwards
-			# println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (tend - t_stop) / (tend - tstart))%")
-		# end
+		if d["time_direction"] == :forwards
+			println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (t_stop - tstart) / (tend - tstart))%")
+		elseif d["time_direction"] == :backwards
+			println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (tend - t_stop) / (tend - tstart))%")
+		end
         t = simulate!(p, t, t_stop, d)
-        particles = copy(p)
+        # particles = copy(p)
         if (d["plot_maps"]) && (t_stop in plot_maps_times)
             # task = @task begin
             (debug_level > 1) && println("plotting map output")
