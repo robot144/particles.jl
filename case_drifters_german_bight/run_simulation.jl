@@ -1,17 +1,14 @@
 using Particles
 using Plots
-
-include(joinpath(@__DIR__, "drifterfunctions.jl"))
+include("drifterfunctions.jl")
 
 drifternumber = 4;
 
-d = default_userdata()
-n = 10 # number of particles
+d=default_userdata()
+n=10 #number of particles
 
-datadir = "/Volumes/1TB_SSD/data/particles"
-
-d["nparticles"] = n
-d["coordinates"] = "spherical"
+d["nparticles"]=n
+d["coordinates"]="spherical"
 d["bbox"] = [6.0,53.5,9.1,55.5]                                                 # Where we expect particles
 d["plot_maps_size"] = (1500, 1000)
 d["time_direction"] = :forwards # :forwards or :backwards
