@@ -3,6 +3,7 @@ using Dates
 
 ############## Put info drifters in matrix: time, longitude, latitude ##############
 function drifterdata(number)
+   # joinpath should be os independent, no special iswindows or \\ needed
    if Sys.iswindows()
       rawdata = readdlm("data\\drifters\\North_Sea_Drifter$(number)_GPS.tab")
    else

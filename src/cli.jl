@@ -16,16 +16,20 @@ end
 
 
 function run_simulation(path::AbstractString)
+    d = config(path)
+    run_simulation(d)
+end
+
+function config(path::AbstractString)
     _, ext = splitext(path)
     if ext == ".csv"
         c = CSV.File(path; normalizenames=true)
         length(c) < 1 && error("Empty csv provided.")
-        config = Dict(keys(c[1]) .=> values(c[1]))
+        config = Dict(string.(keys(c[1])) .=> values(c[1]))
     elseif ext == ".toml"
         config = TOML.parsefile(path)
     else
         error("Unknown file format $ext provided.")
     end
-    d = merge(default_userdata(), config)
-    run_simulation(d)
+    merge(default_userdata(), config)
 end
