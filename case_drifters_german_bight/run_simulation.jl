@@ -18,11 +18,12 @@ d["time_direction"] = :forwards # :forwards or :backwards
 # Drifter 1-4 are in the period of march/april of 2017, thus dflow and matroos data of this period should be used
 # Drifter 5-7 are in the period of october of 2017. The data for this run is currently not available here.
 if drifternumber >= 5
-   datadir = "dcsm-fm_201710"
+   datadir = "data/dcsm-fm_201710"
 else
-   datadir = "/Volumes/1TB_SSD/data/particles"
+   datadir = "data/dcsm-fm_201703"
 end
-dflow_map = load_nc_info(datadir, r"DCSM-FM_05nm_...._map.nc")
+
+dflow_map = load_nc_info(datadir, r"DCSM-FM_0_5nm_...._map.nc")
 interp = load_dflow_grid(dflow_map, 50, true)
 
 drifter = drifterdata(drifternumber)                                             # Retrieve data of the drifter
@@ -146,10 +147,10 @@ function f!(ds, s, t, i, d)
    end
 
    # Convert the velocity in [m/s] to dlat and dlon for latitude and longitude
-   ds.x = rad2deg * up / (R * cos(deg2rad * s[2]))
-   ds.y = rad2deg * vp / R
-   ds.z = 1.0
+   ds[1] = dx   = rad2deg*up/(R*cos(deg2rad*s[2]))
+   ds[2] = dy   = rad2deg*vp/R
+   ds[3] = dage = 1.0
 end
-d["f"] = f!
+d["f"]=f!
 
 run_simulation(d)
