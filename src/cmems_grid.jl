@@ -55,7 +55,7 @@ function load_map_slice(data::CmemsData,varname,itime)
       var[tempvar.==dummy].=NaN
       return var
    else #TODO default to surface for 3D fields
-      tempvar=dropdims(data.file[varname][:,:,1,itime],dims=(3,4))
+      tempvar=data.file[varname][:,:,1,itime]
       var=offset.+scale_factor.*tempvar
       var[tempvar.==dummy].=NaN
       return var

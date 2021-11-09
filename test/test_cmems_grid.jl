@@ -36,5 +36,33 @@ function test1()
    @test v1≈0.04879613983597007
 end
 
+function test2()
+   #init
+   cmems_data = CmemsData("../test_data","u0_2021-10-29_00-00-00_2021-11-07_00-00-00.nc")
+   
+   u1=load_map_slice(cmems_data,"uo",1) # u-velocity
+   @test size(u1)==(733,277)
+   @test isnan(u1[1,1])
+   @test isapprox(u1[100,100],0.21790215,atol=0.001)
+
+   t0=get_reftime(cmems_data)
+   @test t0==DateTime(2021,10,29)
+
+   times=get_times(cmems_data,t0)
+   @test times[1]≈1800.0
+   @test times[2]≈5400.0
+
+   t2=as_DateTime(cmems_data,t0,times[2])
+   @test t2==DateTime("2021-10-29T01:30:00")
+
+
+   u=initialize_interpolation(cmems_data,"uo",t0,NaN) #water velocity x-dir
+   u1=u(-73.0,35.0,0.0,1800.0)
+   @test u1≈0.04947685987763097
+   u2=u(-73.0,35.0,0.0,3600.0)
+   @test u2≈0.037575478067336805
+end
+
 
 test1()
+test2()
