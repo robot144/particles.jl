@@ -20,7 +20,7 @@ function test1()
    boundbox=[0.0,49.0,9.0,55.0] #avoind the use of the name bbox, since it may lead to side-effects
    img=get_map(emodnet_server,boundbox)
    @test size(img)==(800, 1200)
-   @test Float64(img[1,1].r)==0.7137254901960784 #carefull, since this is sensitive to server changes
+   @test abs(Float64(img[1,1].r)-0.69)<0.2 #carefull, since this is sensitive to server changes
    #@test isfile(joinpath(".cache","ows.emodnet-bathymetry.eu_8803805663758041344.png")) 
    plot_image(img,boundbox)
  end
