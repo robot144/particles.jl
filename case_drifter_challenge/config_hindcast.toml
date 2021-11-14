@@ -1,0 +1,25 @@
+id = 1                                 # label particles with id
+x = -69.93235                          # longiude
+y = 34.95782                           # latitude
+nparticles = 10                        # number of particles
+total_mass = 5                         # sum of mass per particle
+radius = 0.02                          # initial spread in degrees
+reftime= 2021-05-30T00:16:49           # reference time for simulation - default tstart=0
+tend = 259200                          # end time of simulation in seconds
+dt = 60.0                              # timstep in seconds
+datapath = "data/hindcast"             # relative path of input files. Note first download these!
+
+#
+# defaults
+#
+
+# write particle tracks to netcdf
+write_maps = true                      # write to netcdf true or false
+write_maps_dir = "netcdf_output"       # relative or absolute folder name
+write_maps_filename = "darpa_hcast.nc" # name of file 
+#write_maps_times = ... todo
+
+# write pictures to disk
+plot_maps = true                       # write plots true or false
+plot_maps_folder = "images_hindcast"   # relative or absolute folder name
+plot_background_source="gebco"         # "emodnet-bathymetry", "open-streetmap" or "gebco"
