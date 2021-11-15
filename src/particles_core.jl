@@ -158,12 +158,12 @@ function run_simulation(d)
             for vari = 1:nvars
                 varname = vars[vari]
                 if write_maps_as_series
-                    start = [timei, 1] # part x time
-                    count = [1, npart]
+                    start = [timei, 1, 1] # part x time
+                    count = [1, npart, 1]
                     NetCDF.putvar(ncvars[vari], collect(p[vari, :]'); start = start, count = count)
                 else
-                    start = [1, timei] # part x time
-                    count = [npart, 1]
+                    start = [1, 1, timei] # part x time
+                    count = [1, npart, 1]
                     NetCDF.putvar(ncvars[vari], p[vari, :]; start = start, count = count)
                 end
             end
@@ -361,13 +361,12 @@ function initialize_netcdf_output(d)
 
     p = d["particles"] # var x part
     for vari = 1:nvars
-        varname = vars[vari]
-        start = [1, 1] # part x time
+        start = [1, 1, 1] # part x time
         if write_maps_as_series
-            count = [1, npart]
+            count = [1, npart, 1]
             NetCDF.putvar(myvars[vari], collect(p[vari, :]'); start = start, count = count)
         else
-            count = [npart, 1]
+            count = [1, npart, 1]
             NetCDF.putvar(myvars[vari], p[vari, :]; start = start, count = count)
         end
     end
@@ -375,5 +374,3 @@ function initialize_netcdf_output(d)
     return (nc, myvars)
     # NetCDF.close(nc)
 end
-
-nothing
