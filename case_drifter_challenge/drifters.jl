@@ -11,7 +11,10 @@ using Plots
 
 include(joinpath(@__DIR__, "drifterfunctions.jl"))
 
-usage = "Usage: julia --project case_drifter_challenge/drifters.jl /path/to/config.toml|csv"
+#
+# read user input
+#
+usage = "Usage: julia --project=.. drifters.jl /path/to/config.toml|csv"
 n = length(ARGS)
 if n != 1
     throw(ArgumentError(usage))
@@ -19,13 +22,31 @@ end
 config_path = only(ARGS)
 if !isfile(config_path)
     throw(ArgumentError("File not found: $(config_path)\n" * usage))
+else
+    println("Reading config from file $(config_path).")
 end
 d = Particles.config(config_path)
 
-d["coordinates"] = "spherical"
-d["buffer"] = d["radius"] * 100
-d["bbox"] = [d["x"] - d["buffer"],d["y"] - d["buffer"],d["x"] + d["buffer"],d["y"] + d["buffer"]]                                                 # Where we expect particles
-d["plot_maps_size"] = (1500, 1500)  # base this on bbox
+#
+# check and iniitialize
+#
+if ! isa(d["id"], Vector)
+   d["id"]=[ d["id"] ] 
+   d["x"]=[ d["x"] ]
+   d["y"]=[ d["y"] ]
+end
+d["nsources"]=length(d["id"])
+if length(d["x"])!=d["nsources"]
+   error("Length of x not equal to $(d["nsources"])")
+end
+if length(d["y"])!=d["nsources"]
+   error("Length of y not equal to $(d["nsources"])")
+end
+
+if !haskey(d,"coordinates")
+   d["coordinates"] = "spherical"
+end
+
 d["time_direction"] = :forwards # :forwards or :backwards
 
 #
@@ -62,31 +83,62 @@ v_wind=zero
 variables = ["lon","lat","age"]
 d["variables"] = variables
 m = length(variables)
-p = zeros(m, d["nparticles"])
+n = d["nparticles"]*d["nsources"]
+p = zeros(m, n)
 # ds, s = track_of_drifter!(zeros(3), zeros(3), starttime, t0, 60, drifter)
-p[1,:] .= rand(-1.:0.00001:1., d["nparticles"]) .* d["radius"] .+ d["x"]
-p[2,:] .= rand(-1.:0.00001:1., d["nparticles"]) .* d["radius"] .+ d["y"]
+#p[1,:] .= rand(-1.:0.00001:1., d["nparticles"]) .* d["radius"] .+ d["x"]
+#p[2,:] .= rand(-1.:0.00001:1., d["nparticles"]) .* d["radius"] .+ d["y"]
+iindex=1
+for isource = 1:d["nsources"]
+   xsource = d["x"][isource]
+   ysource = d["y"][isource]
+   dx = d["radius"]
+   dy = dx
+   for ipart = 1:d["nparticles"]
+      global iindex
+      p[1,iindex] = xsource + dx*randn() 
+      p[2,iindex] = ysource + dy*randn() 
+      iindex+=1
+   end
+end
+d["nparticles"]=n #NOTE overwrite from input
+
 d["particles"] = p # initial values
+
 @info p
 
 ###### Write to netcdf ######
+haskey(d,"write_maps") || (d["write_maps"] = true)
+haskey(d,"write_maps_filename") || (d["write_maps_filename"] = "drifters.nc")    # Save data in NetCDF file
+haskey(d,"write_maps_dir") || (d["write_maps_dir"] = "netcdf_output")
 d["write_maps_times"] = collect(d["tstart"]:3600:d["tend"])                          # Time at which data should be written to netcdf
-d["write_maps"] = true
-d["write_maps_filename"] = "netcdf_diffusie_drifter$(d["id"]).nc"       # Save data in NetCDF file
-d["write_maps_dir"] = "netcdf_output"
 
 ###### Plot maps ######
-d["plot_maps_times"] = collect(d["tstart"]:(24 * 3600):d["tend"])                          # Time at which plot should be made
-d["plot_maps"] = true
+haskey(d,"plot_maps") || (d["plot_maps"] = true)
+haskey(d,"plot_maps_folder") || (d["plot_maps_folder"] = "images_drifter")
+d["plot_maps_times"] = collect(d["tstart"]:(24 * 3600):d["tend"])         # Time at which plot should be made
+# spatial domain for plots
+if !haskey(d,"bbox")
+   dx = maximum(d["x"])-minimum(d["x"])
+   dy = maximum(d["y"])-minimum(d["y"])
+   d["buffer"] = d["radius"] * 100
+   d["bbox"] = [minimum(d["x"]) - d["buffer"],minimum(d["y"]) - d["buffer"],maximum(d["x"]) + d["buffer"],maximum(d["y"]) + d["buffer"]]                                                 # Where we expect particles
+   d["plot_maps_size"] = (1500, 1500)  # base this on bbox
+end
 
-d["plot_maps_folder"] = "images_drifter"
-@info "Using the following config: " d
+
+@info "Using the following  " d
 
 ########################### Prepare background image ###########################
 plot_maps_size = d["plot_maps_size"]
 width, height = plot_maps_size
 plot_bbox = d["bbox"]
-wms_server = WmsServer("emodnet-bathymetry")
+if haskey(d,"plot_background_source")
+   wms_server = WmsServer(d["plot_background_source"])
+else
+   #wms_server = WmsServer("emodnet-bathymetry")
+   wms_server = WmsServer("gebco")
+end
 img = get_map(wms_server, plot_bbox, width, height)
 d["background_image"] = img
 
