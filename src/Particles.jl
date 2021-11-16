@@ -42,7 +42,7 @@ export EraData, load_map_slice, get_reftime, get_times, as_DateTime, initialize_
 export MatroosData # already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
 
 # cmems_grid.jl
-export CmemsData # already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
+export CmemsData, GFSData # already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
 
 # particles_core.jl
 export default_userdata, run_simulation, print_times, plot_maps_xy, plot_maps_xz, index

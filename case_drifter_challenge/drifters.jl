@@ -61,23 +61,20 @@ d["time_direction"] = :forwards # :forwards or :backwards
 #u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
 #v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])
 
-#
 # flow data from cmems
-#
 cmems_u = CmemsData(d["datapath"], "u0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc")
 cmems_v = CmemsData(d["datapath"], "v0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc")
 t0 = d["reftime"]
-u = initialize_interpolation(cmems_u, "uo", t0, NaN) #water velocity x-dir
-v = initialize_interpolation(cmems_v, "vo", t0, NaN) #water velocity y-dir
+u = initialize_interpolation(cmems_u, "uo", t0, NaN)  # water velocity x-dir
+v = initialize_interpolation(cmems_v, "vo", t0, NaN)  # water velocity y-dir
 
-#
-# no winds for now
-#
-function zero(x, y, z, t)
-    return 0.0
-end
-u_wind = zero
-v_wind = zero
+# wind data from gfs
+gfs_u = GFSData(d["datapath"], "gfs_winds.nc")
+gfs_v = GFSData(d["datapath"], "gfs_winds.nc")
+t0 = d["reftime"]
+u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN)  # wind velocity x-dir
+v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN)  # wind velocity y-dir
+
 
 
 variables = ["lon", "lat", "age"]
@@ -175,11 +172,11 @@ function f!(ds, s, t, i, d)
     # 0: Use drifer data
     # track_of_drifter!(ds,s,t,d["reftime"],d["dt"],drifter)
     # 1: Only flow velocities
-    up = uw
-    vp = vw
+    # up = uw
+    # vp = vw
     # 2: Flow plus a factor times wind
-    # up = uw + ua * d["leeway_coeff"]
-    # vp = vw + va * d["leeway_coeff"]
+    up = uw + ua * d["leeway_coeff"]
+    vp = vw + va * d["leeway_coeff"]
     # 3: Add stokes drift to flow velocity
     # usJ, vsJ = uv_sJ(wh(x,y,z,t),wp(x,y,z,t),wd(x,y,z,t))
     # up = uw+usJ
