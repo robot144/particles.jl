@@ -47,7 +47,17 @@ if !haskey(d, "coordinates")
     d["coordinates"] = "spherical"
 end
 
+# simulation timing
 d["time_direction"] = :forwards # :forwards or :backwards
+if !haskey(d, "start")
+    d["tstart"] = 0.0
+end
+if !haskey(d, "tend")
+    error("Final time of simulation tend is missing in config.")
+end 
+if !haskey(d, "dt")
+    error("Time-step in seconds dt is missing in config.")
+end
 
 #
 # flow data from delft3d-fm
@@ -114,7 +124,7 @@ d["write_maps_times"] = collect(d["tstart"]:3600:d["tend"])                     
 ###### Plot maps ######
 haskey(d, "plot_maps") || (d["plot_maps"] = true)
 haskey(d, "plot_maps_folder") || (d["plot_maps_folder"] = "images_drifter")
-d["plot_maps_times"] = collect(d["tstart"]:(24*3600):d["tend"])         # Time at which plot should be made
+d["plot_maps_times"] = collect(d["tstart"]:(2*3600):d["tend"])         # Time at which plot should be made
 # spatial domain for plots
 if !haskey(d, "bbox")
     dx = maximum(d["x"]) - minimum(d["x"])

@@ -8,18 +8,18 @@ y = [34.95769283333333, 40.31831054166667, 39.49000368055555, 35.61681186111111,
 nparticles = 1                         # number of particles per source
 total_mass = 5                         # summed mass of particles per source
 radius = 0.02                          # initial spread in degrees
-reftime = 2021-05-30T00:15:00           # reference time for simulation - default tstart=0
-tend = 259200                          # end time of simulation in seconds
+reftime = 2021-05-30T00:15:00          # reference time for simulation - default tstart=0
+tstart = 0                             # start time in seconds since reftime
+tend = 1983600                         # 1983600=552hours flow data stops here
+#tend = 172800                          # 172800s=2days for a short test
 dt = 60.0                              # timstep in seconds
 datapath = "data/hindcast"             # relative path of input files. Note first download these!
 
 # Defaults
 
 # Model
-K = 1.0
-Kdx = 0.0
-Kdy = 0.0
-leeway_coeff = 0.0144                   # 0.016 * 0.9
+K = 1.0                                # Eddy diffusion m2/s
+leeway_coeff = 0.0144                  # 0.016 * 0.9
 
 # write particle tracks to netcdf
 write_maps = true                      # write to netcdf true or false

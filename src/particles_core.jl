@@ -150,7 +150,7 @@ function run_simulation(d)
             title!(fig1, "time $(t_stop_abs) : t=$(t_stop)")
             # gui(fig1) #force display to screen
             prefix = d["plot_maps_prefix"]
-            savefig(fig1, joinpath(d["plot_maps_folder"], @sprintf("%s_%9.9f.png", prefix, t)))
+            savefig(fig1, joinpath(d["plot_maps_folder"], @sprintf("%s_%010.2f.png", prefix, t)))
         end
         if (d["write_maps"]) && (t_stop in write_maps_times)
             write_maps_as_series = d["write_maps_as_series"]
@@ -263,7 +263,7 @@ function plot_maps_xy(fig, d, p)
     else
         error("plot_maps_xy: no spatial variables x,y or lat,lon found")
     end
-    scatter!(fig, p[x_index, :], p[y_index, :], markercolor = [:black], legend = false)
+    scatter!(fig, p[x_index, :], p[y_index, :], markercolor = :black, legend = false)
 end
 
 """
