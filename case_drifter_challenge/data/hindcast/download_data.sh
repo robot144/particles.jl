@@ -8,5 +8,7 @@ wget -O u0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc https://nx7384.your-storag
 wget -O v0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc https://nx7384.your-storageshare.de/s/KgKsdmWk5FqbZPP/download
 
 # winds from NOAA GFS
-# 48Mb
-wget -O gfs_winds.nc https://nx7384.your-storageshare.de/s/K34zDXKK2GpPLBM/download
+# 48Mb one day
+#wget -O gfs_winds.nc https://nx7384.your-storageshare.de/s/K34zDXKK2GpPLBM/download
+# 763Mb 31 days
+wget -O gfs_winds.nc https://nx7384.your-storageshare.de/s/jMQtERxRakj59ii/download
