@@ -190,7 +190,7 @@ function initialize_interpolation(data::GFSData, varname::String, reftime::DateT
     function f(x, y, z, t)
         # GFS Grid is 0:360 instead of -180:180
         if x < 0
-            x = 360 - x
+            x += 360
         end
         value = interpolate(xyt, x, y, t, dummy)
         return value
