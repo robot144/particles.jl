@@ -48,3 +48,27 @@ img=get_map(gebco_server,boundbox,width,height)
 plot_image(img,boundbox)
 plot!(lon,lat,seriestype = :scatter, label = "initial position")
 savefig("initial_spotter_positions.png")
+
+
+#
+# forecast
+#
+using JSON
+
+filename="challenge_1-day_sofar_20211105_day4JSON.json"
+djson=JSON.parsefile(joinpath("data/forecast",filename))
+d=djson["all_data"]
+nspot=length(d)
+for i=1:nspot
+   temp=d[i]["data"]["track"]
+   ns=length(temp)
+   lons=zeros(ns)
+   lats=zeros(ns)
+   ts=zeros(DateTime,ns)
+   for ti=1:ns
+       lons[ti]=temp[ti]["longitude"]
+       lats[ti]=temp[ti]["latitude"]
+       ts[ti]=DateTime(temp[ti]["timestamp"][1:(end-1)])
+   end
+end
+

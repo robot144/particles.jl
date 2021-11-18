@@ -63,30 +63,91 @@ end
 # flow data from delft3d-fm
 # optionally also winds through this route
 #
-#dflow_map = load_nc_info(d["datapath"], r"DCSM-FM_05nm_...._map.nc")
-#const interp = load_dflow_grid(dflow_map, 50, true)
 
-#u = initialize_interpolation(dflow_map, interp, "mesh2d_ucx", d["reftime"], 0.0, d["time_direction"]);
-#v = initialize_interpolation(dflow_map, interp, "mesh2d_ucy", d["reftime"], 0.0, d["time_direction"]);
-#u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
-#v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])
-
-# flow data from cmems
-cmems_u = CmemsData(d["datapath"], "u0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc")
-cmems_v = CmemsData(d["datapath"], "v0_2021-05-29_00-00-00_2021-06-22_00-00-00.nc")
-t0 = d["reftime"]
-u = initialize_interpolation(cmems_u, "uo", t0, NaN)  # water velocity x-dir
-v = initialize_interpolation(cmems_v, "vo", t0, NaN)  # water velocity y-dir
-
-# wind data from gfs
-gfs_u = GFSData(d["datapath"], "gfs_winds.nc")
-gfs_v = GFSData(d["datapath"], "gfs_winds.nc")
-t0 = d["reftime"]
-u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN)  # wind velocity x-dir
-v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN)  # wind velocity y-dir
+function zero_fun(x,y,z,t) #zero everywhere
+   return 0.0
+end
 
 
+# check keywords for flowdata
+if !haskey(d,"current_dir")
+   d["current_dir"]=d["datapath"]
+end
+current_dir=d["current_dir"]
+if haskey(d,"current_filename")
+   d["current_x_filename"]=d["current_filename"]
+   d["current_y_filename"]=d["current_filename"]
+end
+if !haskey(d,"current_x_filename")
+   error("Missing key: current_x_filename")
+end
+if !haskey(d,"current_y_filename")
+   error("Missing key: current_y_filename")
+end
+if !haskey(d,"current_filetype")
+   error("Missing key: current_filetype")
+end
 
+# create u and v functions for flowdata
+if lowercase(d["current_filetype"])=="cmems"
+   cmems_u = CmemsData(current_dir, d["current_x_filename"])
+   cmems_v = CmemsData(current_dir, d["current_y_filename"])
+   t0 = d["reftime"]
+   u = initialize_interpolation(cmems_u, "uo", t0, NaN)  # water velocity x-dir
+   v = initialize_interpolation(cmems_v, "vo", t0, NaN)  # water velocity y-dir
+elseif lowercase(d["current_filetype"])=="delft3d-fm"
+   dflow_map = load_nc_info(current_dir, Regex(d["current_x_filename"]))
+   #const interp = load_dflow_grid(dflow_map, 50, true)
+   #u = initialize_interpolation(dflow_map, interp, "mesh2d_ucx", d["reftime"], 0.0, d["time_direction"]);
+   #v = initialize_interpolation(dflow_map, interp, "mesh2d_ucy", d["reftime"], 0.0, d["time_direction"]);
+   error("TODO: make this work.")
+elseif lowercase(d["current_filetype"])=="zero"
+   u=zero_fun
+   v=zero_fun
+else
+   error("Invalid current_filtype: $(d["current_filetype"])")
+end
+
+# check input for winds
+if !haskey(d,"wind_dir")
+   d["wind_dir"]=d["datapath"]
+end
+wind_dir=d["wind_dir"]
+if haskey(d,"wind_filename")
+   d["wind_x_filename"]=d["wind_filename"]
+   d["wind_y_filename"]=d["wind_filename"]
+end
+if !haskey(d,"wind_x_filename")
+   error("Missing key: wind_x_filename")
+end
+if !haskey(d,"wind_y_filename")
+   error("Missing key: wind_y_filename")
+end
+if !haskey(d,"wind_filetype")
+   error("Missing key: wind_filetype")
+end
+
+# create u_wind and v_wind
+if lowercase(d["wind_filetype"])=="gfs"
+   # wind data from gfs
+   gfs_u = GFSData(wind_dir, d["wind_x_filename"])
+   gfs_v = GFSData(wind_dir, d["wind_y_filename"])
+   t0 = d["reftime"]
+   u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN)  # wind velocity x-dir
+   v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN)  # wind velocity y-dir
+elseif lowercase(d["wind_filetype"])=="delft3d-fm"
+   u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
+   v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])
+   error("TODO: make this work.")
+elseif lowercase(d["wind_filetype"])=="zero"
+   u_wind=zero_fun
+   v_wind=zero_fun
+else
+   error("Invalid wind_filtype: $(d["current_filetype"])")
+end
+
+
+#initialize
 variables = ["lon", "lat", "age"]
 d["variables"] = variables
 m = length(variables)
@@ -201,13 +262,13 @@ function f!(ds, s, t, i, d)
     #(K, Kdx, Kdy) = estimate_viscosity_smag(interp, x, y, t, u, v)
     # WORKAROUND
     K = d["K"]
-    Kdx = d["Kdx"]
-    Kdy = d["Kdy"]
+    Kdx = 0.0
+    Kdy = 0.0
     # TODO: fix estimate_viscosity_smag for regular grids
     if !(uw == vw == ua == va == 0.0)
         # https://doi.org/10.1016/j.ocemod.2017.11.008 eq. 27
         up += Kdy + randn() * sqrt(2 * K * dt) / dt
-        vp += Kdx + randn() * sqrt(2 * K * dt) / dt
+        up += Kdy + randn() * sqrt(2 * K * dt) / dt
     end
     if d["time_direction"] == :backwards
         up *= -1
