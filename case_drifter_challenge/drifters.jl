@@ -269,7 +269,7 @@ function f!(ds, s, t, i, d)
     if !(uw == vw == ua == va == 0.0)
         # https://doi.org/10.1016/j.ocemod.2017.11.008 eq. 27
         up += Kdy + randn() * sqrt(2 * K * dt) / dt
-        up += Kdy + randn() * sqrt(2 * K * dt) / dt
+        vp += Kdx + randn() * sqrt(2 * K * dt) / dt
     end
     if d["time_direction"] == :backwards
         up *= -1
