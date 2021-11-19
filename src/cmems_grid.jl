@@ -48,10 +48,10 @@ mutable struct GFSData
     Constructor
     cmems_data = GFSData(".","my_cmems_file.nc")
     """
-    function GFSData(path, filename)
+    function GFSData(path, filename; lat = "lat", lon = "lon")
         file = NetCDF.open(joinpath(path, filename))
-        x = collect(file.vars["lon"])
-        y = collect(file.vars["lat"])
+        x = collect(file.vars[lon])
+        y = collect(file.vars[lat])
         grid = CartesianGrid(x, y, true)
         return new(file, grid)
     end

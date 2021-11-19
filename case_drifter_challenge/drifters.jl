@@ -54,7 +54,7 @@ if !haskey(d, "start")
 end
 if !haskey(d, "tend")
     error("Final time of simulation tend is missing in config.")
-end 
+end
 if !haskey(d, "dt")
     error("Time-step in seconds dt is missing in config.")
 end
@@ -64,86 +64,87 @@ end
 # optionally also winds through this route
 #
 
-function zero_fun(x,y,z,t) #zero everywhere
-   return 0.0
+function zero_fun(x, y, z, t) #zero everywhere
+    return 0.0
 end
 
 
 # check keywords for flowdata
-if !haskey(d,"current_dir")
-   d["current_dir"]=d["datapath"]
+if !haskey(d, "current_dir")
+    d["current_dir"] = d["datapath"]
 end
-current_dir=d["current_dir"]
-if haskey(d,"current_filename")
-   d["current_x_filename"]=d["current_filename"]
-   d["current_y_filename"]=d["current_filename"]
+current_dir = d["current_dir"]
+if haskey(d, "current_filename")
+    d["current_x_filename"] = d["current_filename"]
+    d["current_y_filename"] = d["current_filename"]
 end
-if !haskey(d,"current_x_filename")
-   error("Missing key: current_x_filename")
+if !haskey(d, "current_x_filename")
+    error("Missing key: current_x_filename")
 end
-if !haskey(d,"current_y_filename")
-   error("Missing key: current_y_filename")
+if !haskey(d, "current_y_filename")
+    error("Missing key: current_y_filename")
 end
-if !haskey(d,"current_filetype")
-   error("Missing key: current_filetype")
+if !haskey(d, "current_filetype")
+    error("Missing key: current_filetype")
 end
 
 # create u and v functions for flowdata
-if lowercase(d["current_filetype"])=="cmems"
-   cmems_u = CmemsData(current_dir, d["current_x_filename"])
-   cmems_v = CmemsData(current_dir, d["current_y_filename"])
-   t0 = d["reftime"]
-   u = initialize_interpolation(cmems_u, "uo", t0, NaN)  # water velocity x-dir
-   v = initialize_interpolation(cmems_v, "vo", t0, NaN)  # water velocity y-dir
-elseif lowercase(d["current_filetype"])=="delft3d-fm"
-   dflow_map = load_nc_info(current_dir, Regex(d["current_x_filename"]))
-   #const interp = load_dflow_grid(dflow_map, 50, true)
-   #u = initialize_interpolation(dflow_map, interp, "mesh2d_ucx", d["reftime"], 0.0, d["time_direction"]);
-   #v = initialize_interpolation(dflow_map, interp, "mesh2d_ucy", d["reftime"], 0.0, d["time_direction"]);
-   error("TODO: make this work.")
-elseif lowercase(d["current_filetype"])=="zero"
-   u=zero_fun
-   v=zero_fun
+if lowercase(d["current_filetype"]) == "cmems"
+    cmems_u = CmemsData(current_dir, d["current_x_filename"])
+    cmems_v = CmemsData(current_dir, d["current_y_filename"])
+    t0 = d["reftime"]
+    u = initialize_interpolation(cmems_u, "uo", t0, NaN)  # water velocity x-dir
+    v = initialize_interpolation(cmems_v, "vo", t0, NaN)  # water velocity y-dir
+elseif lowercase(d["current_filetype"]) == "delft3d-fm"
+    dflow_map = load_nc_info(current_dir, Regex(d["current_x_filename"]))
+    #const interp = load_dflow_grid(dflow_map, 50, true)
+    #u = initialize_interpolation(dflow_map, interp, "mesh2d_ucx", d["reftime"], 0.0, d["time_direction"]);
+    #v = initialize_interpolation(dflow_map, interp, "mesh2d_ucy", d["reftime"], 0.0, d["time_direction"]);
+    error("TODO: make this work.")
+elseif lowercase(d["current_filetype"]) == "zero"
+    u = zero_fun
+    v = zero_fun
 else
-   error("Invalid current_filtype: $(d["current_filetype"])")
+    error("Invalid current_filtype: $(d["current_filetype"])")
 end
 
 # check input for winds
-if !haskey(d,"wind_dir")
-   d["wind_dir"]=d["datapath"]
+if !haskey(d, "wind_dir")
+    d["wind_dir"] = d["datapath"]
 end
-wind_dir=d["wind_dir"]
-if haskey(d,"wind_filename")
-   d["wind_x_filename"]=d["wind_filename"]
-   d["wind_y_filename"]=d["wind_filename"]
+wind_dir = d["wind_dir"]
+if haskey(d, "wind_filename")
+    d["wind_x_filename"] = d["wind_filename"]
+    d["wind_y_filename"] = d["wind_filename"]
 end
-if !haskey(d,"wind_x_filename")
-   error("Missing key: wind_x_filename")
+if !haskey(d, "wind_x_filename")
+    error("Missing key: wind_x_filename")
 end
-if !haskey(d,"wind_y_filename")
-   error("Missing key: wind_y_filename")
+if !haskey(d, "wind_y_filename")
+    error("Missing key: wind_y_filename")
 end
-if !haskey(d,"wind_filetype")
-   error("Missing key: wind_filetype")
+if !haskey(d, "wind_filetype")
+    error("Missing key: wind_filetype")
 end
 
 # create u_wind and v_wind
-if lowercase(d["wind_filetype"])=="gfs"
-   # wind data from gfs
-   gfs_u = GFSData(wind_dir, d["wind_x_filename"])
-   gfs_v = GFSData(wind_dir, d["wind_y_filename"])
-   t0 = d["reftime"]
-   u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN)  # wind velocity x-dir
-   v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN)  # wind velocity y-dir
-elseif lowercase(d["wind_filetype"])=="delft3d-fm"
-   u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
-   v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])
-   error("TODO: make this work.")
-elseif lowercase(d["wind_filetype"])=="zero"
-   u_wind=zero_fun
-   v_wind=zero_fun
+if lowercase(d["wind_filetype"]) == "gfs"
+    # wind data from gfs
+    gfs_u = GFSData(wind_dir, d["wind_x_filename"]; lon = "x", lat = "y")
+    gfs_v = GFSData(wind_dir, d["wind_y_filename"]; lon = "x", lat = "y")
+    t0 = d["reftime"]
+    u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN)  # wind velocity x-dir
+    v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN)  # wind velocity y-dir
+elseif lowercase(d["wind_filetype"]) == "delft3d-fm"
+    u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
+    v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])
+    error("TODO: make this work.")
+elseif lowercase(d["wind_filetype"]) == "zero"
+    @warn "Running without wind"
+    u_wind = zero_fun
+    v_wind = zero_fun
 else
-   error("Invalid wind_filtype: $(d["current_filetype"])")
+    error("Invalid wind_filtype: $(d["current_filetype"])")
 end
 
 

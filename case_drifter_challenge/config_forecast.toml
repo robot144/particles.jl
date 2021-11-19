@@ -22,7 +22,7 @@ current_x_filename="u0_2021-10-29_00-00-00_2021-11-07_00-00-00.nc" # separate fi
 current_y_filename="v0_2021-10-29_00-00-00_2021-11-07_00-00-00.nc"
 
 # winds
-wind_filetype="zero"                   # valid types are "gfs", "delft3d-fm", "zero"
+wind_filetype="gfs"                   # valid types are "gfs", "delft3d-fm", "zero"
 wind_dir = "data/forecast"
 wind_filename="GFS_FFT_0.25_fc_202111060000.nc" # single for u=east and v=north dirs
 #wind_x_filename="GFS_FFT_0.25_fc_202111060000.nc" # or separate files for u=east and v=north dirs
