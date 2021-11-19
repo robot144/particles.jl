@@ -180,7 +180,7 @@ end
 p = initialize_interpolation(gfs,"msl",t0)
 Create an interpolation function p(x,y,z,t)
 """
-function initialize_interpolation(data::GFSData, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards)
+function initialize_interpolation(data::GFSData, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards; wrap = false)
     times = get_times(data, reftime)
     values = data.file.vars[varname] #TODO more checks
     missing_value = -9999  # Actually does not occur
@@ -189,7 +189,7 @@ function initialize_interpolation(data::GFSData, varname::String, reftime::DateT
     xyt = CartesianXYTGrid(data.grid, times, values, varname, missing_value, scaling, offset, cache_direction)
     function f(x, y, z, t)
         # GFS Grid is 0:360 instead of -180:180
-        if x < 0
+        if wrap && (x < 0)
             x += 360
         end
         value = interpolate(xyt, x, y, t, dummy)
