@@ -132,6 +132,9 @@ end
 if !haskey(d,"wind_y_var")
    d["wind_y_var"]="y"
 end
+if !haskey(d,"wind_x_wrap")
+   d["wind_x_wrap"]=false
+end
 
 # create u_wind and v_wind
 if lowercase(d["wind_filetype"]) == "gfs"
@@ -139,8 +142,8 @@ if lowercase(d["wind_filetype"]) == "gfs"
     gfs_u = GFSData(wind_dir, d["wind_x_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
     gfs_v = GFSData(wind_dir, d["wind_y_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
     t0 = d["reftime"]
-    u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN, wrap = false)  # wind velocity x-dir
-    v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN, wrap = false)  # wind velocity y-dir
+    u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN, wrap = d["wind_x_wrap"])  # wind velocity x-dir
+    v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN, wrap = d["wind_x_wrap"])  # wind velocity y-dir
 elseif lowercase(d["wind_filetype"]) == "delft3d-fm"
     u_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windx", d["reftime"], 0.0, d["time_direction"])
     v_wind = initialize_interpolation(dflow_map, interp, "mesh2d_windy", d["reftime"], 0.0, d["time_direction"])

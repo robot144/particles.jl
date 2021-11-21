@@ -29,6 +29,7 @@ wind_filename="gfs_winds.nc"           # single for u=east and v=north dirs
 #wind_y_filename="gfs_winds.nc" 
 wind_x_var="lon"                       # variable for x-coordinate (default "x")
 wind_y_var="lat"                       # variable for y-coordinate (default "y")
+wind_x_wrap=true                       # shift longitudes from [0 360] to [-180 180] (default false)
 
 
 # Defaults
