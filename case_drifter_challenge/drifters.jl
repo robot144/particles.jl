@@ -126,12 +126,18 @@ end
 if !haskey(d, "wind_filetype")
     error("Missing key: wind_filetype")
 end
+if !haskey(d,"wind_x_var")
+   d["wind_x_var"]="x"
+end
+if !haskey(d,"wind_y_var")
+   d["wind_y_var"]="y"
+end
 
 # create u_wind and v_wind
 if lowercase(d["wind_filetype"]) == "gfs"
     # wind data from gfs
-    gfs_u = GFSData(wind_dir, d["wind_x_filename"]; lon = "x", lat = "y")
-    gfs_v = GFSData(wind_dir, d["wind_y_filename"]; lon = "x", lat = "y")
+    gfs_u = GFSData(wind_dir, d["wind_x_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
+    gfs_v = GFSData(wind_dir, d["wind_y_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
     t0 = d["reftime"]
     u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN, wrap = false)  # wind velocity x-dir
     v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN, wrap = false)  # wind velocity y-dir

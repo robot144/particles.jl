@@ -27,6 +27,8 @@ wind_dir = "data/hindcast"
 wind_filename="gfs_winds.nc"           # single for u=east and v=north dirs
 #wind_x_filename="gfs_winds.nc"        # or separate files for u=east and v=north dirs
 #wind_y_filename="gfs_winds.nc" 
+wind_x_var="lon"                       # variable for x-coordinate (default "x")
+wind_y_var="lat"                       # variable for y-coordinate (default "y")
 
 
 # Defaults
