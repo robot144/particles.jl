@@ -42,4 +42,3 @@ The unit tests reside in tests. The main script is runtests.jl. To run them type
 `include("example_loop.jl")`  
 `run_simulation(d)`  
 
-## kleine aanpassing
