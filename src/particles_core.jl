@@ -158,12 +158,12 @@ function run_simulation(d)
             for vari = 1:nvars
                 varname = vars[vari]
                 if write_maps_as_series
-                    start = [timei, 1, 1] # part x time
-                    count = [1, npart, 1]
+                    start = [timei, 1] # part x time
+                    count = [1, npart]
                     NetCDF.putvar(ncvars[vari], collect(p[vari, :]'); start = start, count = count)
                 else
-                    start = [1, 1, timei] # part x time
-                    count = [1, npart, 1]
+                    start = [1, timei] # part x time
+                    count = [npart, 1]
                     NetCDF.putvar(ncvars[vari], p[vari, :]; start = start, count = count)
                 end
             end
@@ -312,7 +312,7 @@ function initialize_netcdf_output(d)
     part_dim = NcDim("particles", collect(1:1:npart), part_atts)
 
     source_atts = Dict("long_name" => "source id", "units" => "1", "missing_value" => 9999)
-    source_dim = NcDim("sources", get(d, "ids", collect(1:1:npart)), source_atts)
+    source_var = NcVar("sources", part_dim, atts = source_atts, t = Float64)
 
     # global attributes
     gatts = Dict("title" => "Output of particle model", "Conventions" => "CF-1.6", "featureType" => "trajectory")
@@ -349,24 +349,26 @@ function initialize_netcdf_output(d)
             varatts["coordinates"] = "time lat lon"
         end
         if write_maps_as_series
-            myvar = NcVar(varname, [time_dim, part_dim, source_dim], atts = varatts, t = Float64)
+            myvar = NcVar(varname, [time_dim, part_dim], atts = varatts, t = Float64)
         else
-            myvar = NcVar(varname, [source_dim, part_dim, time_dim], atts = varatts, t = Float64)
+            myvar = NcVar(varname, [part_dim, time_dim], atts = varatts, t = Float64)
         end
 
         push!(myvars, myvar)
     end
 
-    nc = NetCDF.create(fullfile, NcVar[myvars...], gatts = gatts, mode = NC_NETCDF4)
+    nc = NetCDF.create(fullfile, NcVar[myvars..., source_var], gatts = gatts, mode = NC_NETCDF4)
+
+    NetCDF.putvar(source_var, get(d, "ids", collect(1:1:npart)))
 
     p = d["particles"] # var x part
     for vari = 1:nvars
-        start = [1, 1, 1] # part x time
+        start = [1, 1] # part x time
         if write_maps_as_series
-            count = [1, npart, 1]
+            count = [1, npart]
             NetCDF.putvar(myvars[vari], collect(p[vari, :]'); start = start, count = count)
         else
-            count = [1, npart, 1]
+            count = [npart, 1]
             NetCDF.putvar(myvars[vari], p[vari, :]; start = start, count = count)
         end
     end
