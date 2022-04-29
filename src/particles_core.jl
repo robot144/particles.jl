@@ -107,7 +107,7 @@ function run_simulation(d)
     if d["write_maps"]
         write_maps_times = d["write_maps_times"]
         target_times = sort(union(write_maps_times, target_times))
-        print("writing output to netcdf at t")
+        print("writing output to netcdf at t = ")
         print_times(tref, write_maps_times)
         (nc_out, ncvars) = initialize_netcdf_output(d)
     end
@@ -123,7 +123,7 @@ function run_simulation(d)
         i_last = findlast(x -> x <= tend, temp)
         target_times = temp[1:i_last]
     end
-    print("interupt simulation for output at t=")
+    print("interrupt simulation for output at t = ")
     print_times(tref, target_times)
     println("Simulation from time $(t) s to $(tend) s since $(tref) since $(tref)")
     if d["time_direction"] == :forwards
@@ -136,9 +136,9 @@ function run_simulation(d)
         t_abs = tref + Second(round(t))
         t_stop_abs = tref + Second(round(t_stop))
         if d["time_direction"] == :forwards
-            println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (t_stop - tstart) / (tend - tstart))%")
+            println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(round(100.0 * (t_stop - tstart) / (tend - tstart), digits = 1))%")
         elseif d["time_direction"] == :backwards
-            println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(100.0 * (tend - t_stop) / (tend - tstart))%")
+            println("t=$(t) -> $(t_stop)  : $(t_abs) -> $(t_stop_abs) : $(round(100.0 * (tend - t_stop) / (tend - tstart), digits = 1))%")
         end
         t = simulate!(p, t, t_stop, d)
         if (d["plot_maps"]) && (t_stop in plot_maps_times)
