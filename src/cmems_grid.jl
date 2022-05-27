@@ -28,10 +28,10 @@ mutable struct CmemsData
     Constructor
     cmems_data = CmemsData(".","my_cmems_file.nc")
     """
-    function CmemsData(path, filename)
+    function CmemsData(path, filename; lon = "longitude", lat = "latitude")
         file = NetCDF.open(joinpath(path, filename))
-        x = collect(file.vars["longitude"])
-        y = collect(file.vars["latitude"])
+        x = collect(file.vars[lon])
+        y = collect(file.vars[lat])
         grid = CartesianGrid(x, y, true)
         return new(file, grid)
     end
@@ -46,9 +46,9 @@ mutable struct GFSData
     grid::CartesianGrid
     """
     Constructor
-    cmems_data = GFSData(".","my_cmems_file.nc")
+    gfs_data = GFSData(".","my_gfs_file.nc")
     """
-    function GFSData(path, filename; lat = "lat", lon = "lon")
+    function GFSData(path, filename; lon = "x", lat = "y")
         file = NetCDF.open(joinpath(path, filename))
         x = collect(file.vars[lon])
         y = collect(file.vars[lat])
@@ -166,8 +166,16 @@ function initialize_interpolation(data::CmemsData, varname::String, reftime::Dat
     times = get_times(data, reftime)
     values = data.file.vars[varname] #TODO more checks
     missing_value = values.atts["_FillValue"]
-    scaling = values.atts["scale_factor"]
-    offset = values.atts["add_offset"]
+    if haskey(values.atts, "scale_factor")
+       scaling = values.atts["scale_factor"]
+    else
+       scaling = 1.0
+    end
+    if haskey(values.atts, "add_offset")
+       offset = values.atts["add_offset"]
+    else
+       offset = 0.0
+    end
     xyt = CartesianXYTGrid(data.grid, times, values, varname, missing_value, scaling, offset, cache_direction)
     function f(x, y, z, t)
         value = interpolate(xyt, x, y, t, dummy)

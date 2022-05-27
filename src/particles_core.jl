@@ -311,9 +311,6 @@ function initialize_netcdf_output(d)
     part_atts = Dict("long_name" => "particle id", "units" => "1", "cf_role" => "trajectory_id", "missing_value" => 9999)
     part_dim = NcDim("particles", collect(1:1:npart), part_atts)
 
-    source_atts = Dict("long_name" => "source id", "units" => "1", "missing_value" => 9999)
-    source_var = NcVar("sources", part_dim, atts = source_atts, t = Float64)
-
     # global attributes
     gatts = Dict("title" => "Output of particle model", "Conventions" => "CF-1.6", "featureType" => "trajectory")
 
@@ -357,9 +354,7 @@ function initialize_netcdf_output(d)
         push!(myvars, myvar)
     end
 
-    nc = NetCDF.create(fullfile, NcVar[myvars..., source_var], gatts = gatts, mode = NC_NETCDF4)
-
-    NetCDF.putvar(source_var, get(d, "ids", collect(1:1:npart)))
+    nc = NetCDF.create(fullfile, NcVar[myvars...], gatts = gatts, mode = NC_NETCDF4)
 
     p = d["particles"] # var x part
     for vari = 1:nvars

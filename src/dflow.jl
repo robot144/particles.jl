@@ -32,17 +32,26 @@ function load_dflow_grid(map, nmin=50, spherical=true)
    interp = Interpolator()
    println("compute index:")
    for i = 1:length(map)
-      if haskey(map[i].vars, "NetElemNode")
+      if haskey(map[i].vars, "NetElemNode") # Old FM variable name
          edges_temp = map[i].vars["NetElemNode"][:,:]
+      elseif haskey(map[i].vars, "mesh2d_face_nodes") # New FM variable name
+	     edges_temp = map[i].vars["mesh2d_face_nodes"][:,:]
+      elseif haskey(map[i].vars, "Mesh_face_nodes") # FEWS variable name
+         edges_temp = map[i].vars["Mesh_face_nodes"][:,:]
       else
-         edges_temp = map[i].vars["mesh2d_face_nodes"][:,:]
+         error("Variable 'mesh2d_face_nodes' (or similar) is missing in D-Flow FM file")
       end
-      if haskey(map[i].vars, "NetNode_x")
+      if haskey(map[i].vars, "NetNode_x") # Old FM variable names
          xnodes_temp = map[i].vars["NetNode_x"][:]
          ynodes_temp = map[i].vars["NetNode_y"][:]
-      else
+      elseif haskey(map[i].vars, "mesh2d_node_x") # New FM variable names
          xnodes_temp = map[i].vars["mesh2d_node_x"][:]
          ynodes_temp = map[i].vars["mesh2d_node_y"][:]
+      elseif haskey(map[i].vars, "Mesh_node_x") # FEWS variable name
+	      xnodes_temp = map[i].vars["Mesh_node_x"][:]
+         ynodes_temp = map[i].vars["Mesh_node_y"][:]
+      else
+         error("Variable 'mesh2d_node_x' (or similar) is missing in D-Flow FM file")
       end
       println("- $(map[i].name)")
       grid_temp = Grid(xnodes_temp, ynodes_temp, edges_temp, nmin, spherical)
@@ -105,7 +114,11 @@ function get_times(map, reftime::DateTime)
    time_relative = map[1].vars["time"]
    units = time_relative.atts["units"]
    temp = split(units, "since")
-   t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   if endswith(temp[2],".0 +0000")
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS.0 +0000") # format used in FEWS 
+   else
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS +00:00")
+   end
    dt_seconds = 1.0
    if startswith(temp[1], "seconds")
       dt_seconds = 1.0
@@ -193,8 +206,14 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    time_cache = zeros(3)
    var_cache = Array{Any,1}(undef, 3)
    initialized = false
-   if !haskey(dflow_map[1].vars, varname)
-      throw(ArgumentError("$varname is not a variable in the map"))
+   if !haskey(dflow_map[1].vars, varname) 
+      varname_stripped = replace(varname, "mesh2d_" => "") # e.g. mesh2d_ucx => ucx
+      if haskey(dflow_map[1].vars, varname_stripped)
+         println("Renaming varname to $varname_stripped as $varname is not a variable in the map, but $varname_stripped is.")
+         varname = varname_stripped
+      else
+         throw(ArgumentError("$varname is not a variable in the map"))
+      end
    end
    for ti = 1:3
       time_cache[ti] = times_cache[ti]
