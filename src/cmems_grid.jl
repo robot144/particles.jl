@@ -28,12 +28,19 @@ mutable struct CmemsData
     Constructor
     cmems_data = CmemsData(".","my_cmems_file.nc")
     """
-    function CmemsData(path, filename; lon = "longitude", lat = "latitude")
-        file = NetCDF.open(joinpath(path, filename))
-        x = collect(file.vars[lon])
-        y = collect(file.vars[lat])
-        grid = CartesianGrid(x, y, true)
-        return new(file, grid)
+    function CmemsData(path, filename_regex; lon = "longitude", lat = "latitude")
+        isa(filename_regex, Regex) || (filename_regex = Regex(filename_regex)) # make sure it's a Regex()
+        map = []
+        filenames = filter(x -> ~isnothing(match(filename_regex, x)), readdir(path))
+        for filename = filenames
+            file = NetCDF.open(joinpath(path, filename))
+            x = collect(file.vars[lon])
+            y = collect(file.vars[lat])
+            grid = CartesianGrid(x, y, true)
+            push!(map, new(file, grid))
+        end
+        length(map) != 1 || (map = map[1]) # backward compatibility
+        return map
     end
 end
 
@@ -162,23 +169,33 @@ end
 p = initialize_interpolation(cmems,"msl",t0)
 Create an interpolation function p(x,y,z,t)
 """
-function initialize_interpolation(data::CmemsData, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards)
-    times = get_times(data, reftime)
-    values = data.file.vars[varname] #TODO more checks
-    missing_value = values.atts["_FillValue"]
-    if haskey(values.atts, "scale_factor")
-       scaling = values.atts["scale_factor"]
-    else
-       scaling = 1.0
+function initialize_interpolation(data, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards)
+    !isa(data, CmemsData) || (data = [data]) # to allow for looping over an array of CmemsData
+    xyt = []
+    for i = 1:length(data)
+        times = get_times(data[i], reftime)
+        values = data[i].file.vars[varname] #TODO more checks
+        missing_value = values.atts["_FillValue"]
+        if haskey(values.atts, "scale_factor")
+            scaling = values.atts["scale_factor"]
+        else
+            scaling = 1.0
+        end
+        if haskey(values.atts, "add_offset")
+            offset = values.atts["add_offset"]
+        else
+            offset = 0.0
+        end
+        xyt = push!(xyt, CartesianXYTGrid(data[i].grid, times, values, varname, missing_value, scaling, offset, cache_direction))
     end
-    if haskey(values.atts, "add_offset")
-       offset = values.atts["add_offset"]
-    else
-       offset = 0.0
-    end
-    xyt = CartesianXYTGrid(data.grid, times, values, varname, missing_value, scaling, offset, cache_direction)
     function f(x, y, z, t)
-        value = interpolate(xyt, x, y, t, dummy)
+        value = dummy
+        for i = 1:length(xyt)
+            value = interpolate(xyt[i], x, y, t, dummy)
+            if value != dummy && !isnan(value)
+                break
+            end
+        end
         return value
     end
     return f

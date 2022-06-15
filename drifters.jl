@@ -121,8 +121,8 @@ end
 
 # create u and v functions for flowdata
 if lowercase(d["current_filetype"]) == "cmems"
-    cmems_u = CmemsData(current_dir, d["current_x_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
-    cmems_v = CmemsData(current_dir, d["current_y_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
+    cmems_u = CmemsData(current_dir, Regex(d["current_x_filename"]); lon = d["current_x_var"], lat = d["current_y_var"])
+    cmems_v = CmemsData(current_dir, Regex(d["current_y_filename"]); lon = d["current_x_var"], lat = d["current_y_var"])
     t0 = d["reftime"]
     u = initialize_interpolation(cmems_u, d["current_ucx_var"], t0, NaN)  # water velocity x-dir
     v = initialize_interpolation(cmems_v, d["current_ucy_var"], t0, NaN)  # water velocity y-dir
