@@ -166,16 +166,16 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
             temp=values[:,:,:,ti]
          else
             error("Ndims should be 2 or 3 for a cartesian xyt-grids for now")
-        end
+         end
          temp_scaled=offset.+scaling.*temp
          temp_scaled[temp.==missing_value].=NaN #use NaN for missing in cache
          cache[ti]=temp_scaled
       end
       time_cache_index=3 #index of last cached field in list of all available times
       (debuglevel>3) && println("Initial cache index=$(time_cache_index) ")
-	  if cache_direction!=:forwards&&cache_direction!=:backwards
-		  error("Unexpected symbol for cache_direction, $cache_direction not supported")
-	  end
+      if cache_direction!=:forwards&&cache_direction!=:backwards
+         error("Unexpected symbol for cache_direction, $cache_direction not supported")
+      end
       new(grid,times,values,name,ndims,missing_value,scaling,offset,cache,time_cache,time_cache_index,cache_direction)
    end
 end
@@ -234,7 +234,7 @@ function update_cache(xyt::CartesianXYTGrid,t)
       xyt.cache[3]=get_map_slice(xyt,ti+1)
       xyt.time_cache_index=ti+1
    end
-   (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+   (debuglevel>=4) && println("$(xyt.time_cache_index) $(xyt.time_cache[1]) $(xyt.time_cache[2]) $(xyt.time_cache[3]) ")
 end
 
 """
@@ -275,7 +275,7 @@ function update_cache_backwards(xyt::CartesianXYTGrid,t)
       xyt.cache[3]=get_map_slice(xyt,ti)
       xyt.time_cache_index=ti-2
    end
-   (debuglevel>=4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+   (debuglevel>=4) && println("$(xyt.time_cache_index) $(xyt.time_cache[1]) $(xyt.time_cache[2]) $(xyt.time_cache[3]) ")
 end
 
 """
