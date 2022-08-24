@@ -121,13 +121,13 @@ end
 
 # create u and v functions for flowdata
 if lowercase(d["current_filetype"]) == "cmems"
-    cmems_u = CmemsData(current_dir, Regex(d["current_x_filename"]); lon = d["current_x_var"], lat = d["current_y_var"])
-    cmems_v = CmemsData(current_dir, Regex(d["current_y_filename"]); lon = d["current_x_var"], lat = d["current_y_var"])
+    cmems_u = CmemsData(current_dir, d["current_x_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
+    cmems_v = CmemsData(current_dir, d["current_y_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
     t0 = d["reftime"]
     u = initialize_interpolation(cmems_u, d["current_ucx_var"], t0, NaN)  # water velocity x-dir
     v = initialize_interpolation(cmems_v, d["current_ucy_var"], t0, NaN)  # water velocity y-dir
 elseif lowercase(d["current_filetype"]) == "delft3d-fm"
-    dflow_map = load_nc_info(current_dir, Regex(d["current_filename"]))
+    dflow_map = load_nc_info(current_dir, d["current_filename"])
     const interp = load_dflow_grid(dflow_map, 50, true)
     u = initialize_interpolation(dflow_map, interp, d["current_ucx_var"], d["reftime"], 0.0, d["time_direction"]);
     v = initialize_interpolation(dflow_map, interp, d["current_ucy_var"], d["reftime"], 0.0, d["time_direction"]);
@@ -141,7 +141,7 @@ end
 # create u and v functions for SECOND flowdata
 if haskey(d, "current2_filetype") 
     if lowercase(d["current2_filetype"]) == "delft3d-fm"
-        dflow_map = load_nc_info(d["current2_dir"], Regex(d["current2_filename"]))
+        dflow_map = load_nc_info(d["current2_dir"], d["current2_filename"])
         const interp = load_dflow_grid(dflow_map, 50, true)
         u2 = initialize_interpolation(dflow_map, interp, d["current2_ucx_var"], d["reftime"], 0.0, d["time_direction"]);
         v2 = initialize_interpolation(dflow_map, interp, d["current2_ucy_var"], d["reftime"], 0.0, d["time_direction"]);
@@ -347,7 +347,7 @@ d["f"] = f!
 
 run_simulation(d)
 
-if haskey(d, "npartpersource") && d["npartpersource"] > 1
+if d["write_maps"] && haskey(d, "npartpersource") && d["npartpersource"] > 1
     import NetCDF
     using NetCDF
     import Statistics

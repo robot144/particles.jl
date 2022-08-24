@@ -3,21 +3,29 @@
 
 using NetCDF
 using Dates
+using Glob
 # include("unstructured_grid.jl")
 
 const debuglevel = 1 # 0-nothing, larger more output
 
 
 """
-   map=load_nc_info(path,filename_regex)
-Load meta-data of all map-files, i.e. for all domains in the filename_regex.
+   map=load_nc_info(path,filename)
+Load meta-data of all map-files, i.e. for all domains in the filename.
 """
-function load_nc_info(path, filename_regex::Regex)
+function load_nc_info(path, filename)
    map = []
-   filenames = filter(x -> ~isnothing(match(filename_regex, x)), readdir(path))
+   if isa(filename, Regex) # filename used to be a Regex-type (filename_regex::Regex)
+      filenames = filter(x -> ~isnothing(match(filename, x)), readdir(path))
+      filenames = [joinpath(path, filename) for filename = filenames]
+   elseif occursin("*", filename)
+      filenames = glob(filename, path)
+   else
+      filenames = [joinpath(path, filename)]
+   end
    for filename = filenames
         @info filename
-        push!(map, NetCDF.open(joinpath(path, filename)))
+        push!(map, NetCDF.open(filename))
    end
    return map
 end
@@ -31,7 +39,15 @@ load_nc_info.
 function load_dflow_grid(map, nmin=50, spherical=true)
    interp = Interpolator()
    println("compute index:")
+   map_names = []
    for i = 1:length(map)
+      # only load the grid with a certain filename once
+      map_name = splitpath(map[i].name)[end]
+      if in(map_name, map_names)
+         break
+      else
+         push!(map_names, map_name)
+      end
       if haskey(map[i].vars, "NetElemNode") # Old FM variable name
          edges_temp = map[i].vars["NetElemNode"][:,:]
       elseif haskey(map[i].vars, "mesh2d_face_nodes") # New FM variable name
@@ -155,12 +171,21 @@ end
 Read the reference time from the attributes of time in the netcdf file.
 Times are described by a reference time (DateTime type) and the number of hours
 relative to this t_ref.
+Note that this function returns the first timestamp in the file (which 
+   is not always the same as the RefDate from the .mdu or the 
+   "since <refDate> text" in the time-attribute of the netcdf file)
+Suggestion: use get_reftime to get the reference date and also use 
+   get_reftime within get_times
 """
 function get_reftime(map)
    time_relative = map[1].vars["time"]
    units = time_relative.atts["units"]
    temp = split(units, "since")
-   t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   if endswith(temp[2],"0 +00:00")
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS +00:00")
+   else
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   end
    dt_seconds = 1.0
    if startswith(temp[1], "seconds")
       dt_seconds = 1.0
@@ -202,6 +227,15 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    # dumval_cache=dumval
    # reftime_cache=reftime
    times_cache = get_times(dflow_map, reftime)
+   no_domains = length(interp.grids)
+   multiple_runs = length(dflow_map) > no_domains # multiple runs per domain available
+   if multiple_runs
+      times_cache_all = [get_times([map], reftime) for map in dflow_map]
+      dflow_map_all = dflow_map
+      dflow_map_ind = 1:no_domains
+      dflow_map = dflow_map[dflow_map_ind]
+   end
+
    # keep 3 times in memory
    time_cache = zeros(3)
    var_cache = Array{Any,1}(undef, 3)
@@ -226,6 +260,26 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
        Refresh the cached fields in the forwards time directions if needed.
    """
    function update_cache_forwards(t)
+      # First, update dflow_map and refresh cache
+      if multiple_runs
+         dflow_map_ind_needed = findlast([(t >= times[1]) && (t <= times[end]) for times in times_cache_all])
+         if !isnothing(dflow_map_ind_needed)
+            dflow_map_ind_needed = (dflow_map_ind_needed-no_domains+1):dflow_map_ind_needed
+            if dflow_map_ind_needed != dflow_map_ind # update of dflow_map needed (e.g. using run02/run_0000_map.nc instead of run01/run_0000_map.nc)
+               (debuglevel >= 1) && println("t = $(t) - Switching to dflowfm_map based on: ..\\$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[1]].name)[end-2:end]))")
+               dflow_map_ind = dflow_map_ind_needed
+               dflow_map = dflow_map_all[dflow_map_ind]
+               times_cache = times_cache_all[dflow_map_ind[1]]
+               for ti = 1:3
+                  time_cache[ti] = times_cache[ti]
+                  var_cache[ti] = load_nc_map_slice(dflow_map, varname, ti)
+               end
+               time_cache_index = 3 # index of last cached field in list of all available times
+            end
+         end
+      end
+
+      # Next, update cache of this dflow_map 
       if (t >= time_cache[1]) && (t <= time_cache[3])
          (debuglevel >= 2) && println("cache is okay")
       elseif t > times_cache[end]
@@ -243,7 +297,9 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          error("Trying to access before first map t=$(t) < $(times_cache[0])")
       else # complete refresh of cache
          (debuglevel >= 2) && println("refresh cache")
-         ti = findfirst(tt -> tt > t, times_cache)
+         ti = findfirst(tt -> tt >= t, times_cache)
+         (ti != length(times_cache)) || (ti = ti - 1)
+         (ti != 1) || (ti = ti + 1)
          (debuglevel >= 4) && println("ti=$(ti), t=$(t)")
          (debuglevel >= 4) && println("$(times_cache)")
          time_cache[1] = times_cache[ti - 1]

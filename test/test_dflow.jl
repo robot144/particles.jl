@@ -82,6 +82,34 @@ function test2()
    end
 end
 
+function test3()
+   #init
+   dflow_map=load_nc_info("../test_data","dfm_multiple_runs_and_domains/01_flow_to_right/DFM_OUTPUT_cb_2d/cb_2d_0000_map.nc")
+   @test length(dflow_map)==1
+   dflow_map=load_nc_info("../test_data","dfm_multiple_runs_and_domains/01_flow_to_right/DFM_OUTPUT_cb_2d/cb_2d_0000_map.nc")
+   @test length(dflow_map)==1
+   dflow_map=load_nc_info("../test_data/dfm_multiple_runs_and_domains/01_flow_to_right/DFM_OUTPUT_cb_2d/",r"cb_2d_...._map.nc")
+   @test length(dflow_map)==2
+   dflow_map=load_nc_info("../test_data","dfm_multiple_runs_and_domains/*/DFM_OUTPUT_cb_2d/cb_2d_*_map.nc")
+   @test length(dflow_map)==4
+   @test size(dflow_map[1].vars["mesh2d_ucx"])==(317,25)
+   interp=load_dflow_grid(dflow_map,50,true)
+   @test length(interp.grids)==2
+   
+   # u,v interpolation functions
+   t0=get_reftime(dflow_map)
+   @test t0==DateTime(2001,1,1)
+   u1,v1=initialize_interpolation(dflow_map,interp,t0)
+   u_value=u1(3.33, 47.99, 0.0, 1800.0)
+   @test u_value==0.0435357731534879
+   u_value=u1(3.33, 47.99, 0.0, 86400.0)
+   @test u_value==-0.048490750670203864
+   u_value=u1(3.33, 47.99, 0.0, 43200.0)
+   @test u_value==0
+   u_value=u1(3.33, 47.99, 0.0, 43199.0)
+   @test u_value==0.04905390667374792
+end
+
 test1()
 
 #test2 needs large input files that are not present in the repository.
@@ -89,3 +117,5 @@ test1()
 if isfile(joinpath("../test_data","DCSM-FM_0_5nm_0000_map.nc"))
    test2()
 end
+
+test3()

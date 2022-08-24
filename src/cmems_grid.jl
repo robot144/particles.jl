@@ -14,6 +14,7 @@
 
 using NetCDF
 using Dates
+using Glob
 
 const debuglevel = 1 #0-nothing, larger more output
 
@@ -26,14 +27,22 @@ mutable struct CmemsData
     grid::CartesianGrid
     """
     Constructor
-    cmems_data = CmemsData(".","my_cmems_file.nc")
+    cmems_data  = CmemsData(".", "my_cmems_file.nc")
+    cmems_datas = CmemsData("data/2022", "07/CMEMS/my_cmems_file_part.+.nc") # using .+ as a Regex-wildcard
+    cmems_datas = CmemsData("data/2022",  "*/CMEMS/my_cmems_file_part*.nc")  # using *  as a glob-wildcard
     """
-    function CmemsData(path, filename_regex; lon = "longitude", lat = "latitude")
-        isa(filename_regex, Regex) || (filename_regex = Regex(filename_regex)) # make sure it's a Regex()
+    function CmemsData(path, filename; lon = "longitude", lat = "latitude")
         map = []
-        filenames = filter(x -> ~isnothing(match(filename_regex, x)), readdir(path))
+        if occursin("*", filename)
+            filenames = glob(filename, path)
+        elseif occursin(".+", filename)
+            filenames = filter(x -> ~isnothing(match(Regex(filename), x)), readdir(path))
+            filenames = [joinpath(path, filename) for filename = filenames]
+        else
+            filenames = [joinpath(path, filename)]
+        end
         for filename = filenames
-            file = NetCDF.open(joinpath(path, filename))
+            file = NetCDF.open(filename)
             x = collect(file.vars[lon])
             y = collect(file.vars[lat])
             grid = CartesianGrid(x, y, true)
@@ -125,7 +134,7 @@ end
 """
    times=get_times(cmems_data,Dates.DateTime(2019,1,1))
 
-Get available times im netcdf map files as a range in seconds, eg 0.0:3600.0:7200.0
+Get available times in netcdf map files as a range in seconds, eg 0.0:3600.0:7200.0
 The reftime (second arg) is a Dates.DateTime can be used to change the reftime to something
 convenient. With reftime=get_reftime(map) you can find the time of the first map, which is often
 a nice default.
@@ -190,8 +199,10 @@ function initialize_interpolation(data, varname::String, reftime::DateTime, dumm
     end
     function f(x, y, z, t)
         value = dummy
-        for i = 1:length(xyt)
-            value = interpolate(xyt[i], x, y, t, dummy)
+        for i = length(xyt):-1:1 # loop backwards to use data from most recent file (based on alphabetical order)
+            if i == 1 || (t >= xyt[i].times[1] && t <= xyt[i].times[end]) # if multiple files are provided, only interpolate when time 't' is available
+                value = interpolate(xyt[i], x, y, t, dummy)
+            end
             if value != dummy && !isnan(value)
                 break
             end

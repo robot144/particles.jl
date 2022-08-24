@@ -1,0 +1,50 @@
+* Deltares, D-Flow FM Version 1.2.162.141476, Jul 20 2022, 20:29:53
+* Source: https://svn.oss.deltares.nl/repos/delft3d/trunk/
+* File creation date: 15:08:39, 14-08-2022
+** INFO   : Command: "p:\d-hydro\dimrset\latest\x64\dflowfm\scripts\..\..\..\x64\dflowfm\bin\dflowfm-cli.exe"  --nodisplay --autostartstop "--partition:ndomains=2:icgsolver=6" cb_2d.mdu
+ Until here copy of previous diagnostic file
+** WARNING: While reading 'cb_2d.mdu': keyword [geometry] layertype=1 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [geometry] numtopsig=0 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [geometry] sigmagrowthfactor=1 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [numerics] transportmethod=1 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [numerics] qhrelax=0.01 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [numerics] jaorgsethu=1 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [physics] effectspiral=0 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [waves] wavenikuradse=0.01 was in file, but not used. Check possible typo.
+** WARNING: While reading 'cb_2d.mdu': keyword [trachytopes] trtdt=60 was in file, but not used. Check possible typo.
+** INFO   : Opened file : cb3d-1_obs.xyn
+** INFO   : Closed file : cb3d-1_obs.xyn
+** INFO   : Opened file : cb3d-1_thd.pli
+** INFO   : Closed file : cb3d-1_thd.pli
+** INFO   : nr of netnodes               ( )  :                      616
+** INFO   : nr of netlinks               ( )  :                     1165
+** INFO   : 
+** INFO   : nr of 2D netlinks            ( )  :                     1165
+** INFO   : nr of 1D netlinks            ( )  :                        0
+** INFO   : 
+** INFO   : nr of netcells               ( )  :                      550
+** INFO   : nr of netcells 1D2D          ( )  :                      550
+** INFO   : 
+** WARNING: Missing coordinate reference system. Now using default: wgs84 (EPSG:4326).
+** INFO   : added node-based ghostcells:              2
+** INFO   : nr of netnodes               ( )  :                      360
+** INFO   : nr of netlinks               ( )  :                      676
+** INFO   : 
+** INFO   : nr of 2D netlinks            ( )  :                      676
+** INFO   : nr of 1D netlinks            ( )  :                        0
+** INFO   : 
+** INFO   : nr of netcells               ( )  :                      317
+** INFO   : nr of netcells 1D2D          ( )  :                      317
+** INFO   : 
+** WARNING: Missing coordinate reference system. Now using default: wgs84 (EPSG:4326).
+** INFO   : added node-based ghostcells:              2
+** INFO   : nr of netnodes               ( )  :                      361
+** INFO   : nr of netlinks               ( )  :                      677
+** INFO   : 
+** INFO   : nr of 2D netlinks            ( )  :                      677
+** INFO   : nr of 1D netlinks            ( )  :                        0
+** INFO   : 
+** INFO   : nr of netcells               ( )  :                      317
+** INFO   : nr of netcells 1D2D          ( )  :                      317
+** INFO   : 
+** WARNING: Missing coordinate reference system. Now using default: wgs84 (EPSG:4326).

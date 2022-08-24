@@ -1,0 +1,12 @@
+
+[boundary]
+quantity=velocitybnd
+locationfile=inner-east.pli
+forcingfile=Velocity.bc
+return_time=0.0000000e+000
+
+[boundary]
+quantity=velocitybnd
+locationfile=inner-south.pli
+forcingfile=Velocity.bc
+return_time=0.0000000e+000
