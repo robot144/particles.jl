@@ -1,0 +1,37 @@
+
+Test with various compression options for hourly map fields from
+DCSM-FM_05nm_0001_map.nc (one domain only) with 20 layers
+
+waterlevel 2d
+244  mb  original float64
+61.2 mb  rounded mm int16
+26.2 mb  rounded mm int16 zipped (level=3)
+21.0 mb  rounded mm int16 zipped - transformed increments time
+20.2 mb  rounded mm int16 zipped - transformed increments space and time
+
+salinity 3d
+4877 mb  original float64
+1219 mb  rounded 0.1psu int16
+142  mb  rounded 0.1psu int16 zipped (level=3)
+122  mb  rounded 0.1psu int16 zipped - transformed increments time
+91.2 mb  rounded 0.1psu int16 zipped - transformed increments layers
+79.6 mb  rounded 0.1psu int16 zipped - transformed increments layers and time
+
+temperature 3d
+4877 mb  original float64
+1219 mb  rounded 0.1C int16
+119  mb  rounded 0.1C int16 zipped (level=3)
+110  mb  rounded 0.1C int16 zipped - transformed increments time
+82.0 mb  rounded 0.1C int16 zipped - transformed increments layers
+91.8 mb  rounded 0.1C int16 zipped - transformed increments layers and time
+
+velocity component u 3d
+4877 mb  original float64
+1219 mb  rounded cm/s int16
+300  mb  rounded cm/s int16 zipped (level=3)
+244  mb  rounded cm/s int16 zipped - transformed increments time
+214  mb  rounded cm/s int16 zipped - transformed increments layers
+256  mb  rounded cm/s int16 zipped - transformed increments layers and time
+
+Similar effects can be achieved with the Zarr format. Zarr stores the chunks in separate files, which
+can be very useful when eg downloading parts of a large dataset over network.
