@@ -12,13 +12,33 @@ debuglevel=1
 #
 # defaults
 #
-try_vars = ["waterlevel"] #variables to look for in hisfile
+try_vars = ["waterlevel","salinity","x_velocity","y_velocity","vicww"] #variables to look for in hisfile
 defaults = Dict(
     "waterlevel" => Dict(
        "scale_factor" => 0.001, 
        "add_offset" => 0.0,
        "data_type" => "Int16",
        "_FillValue" => 9999 ),
+    "salinity" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "x_velocity" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "y_velocity" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "vicww" => Dict(
+        "scale_factor" => 1e-6, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
     "time" => Dict(
         "scale_factor" => 1.0, 
         "add_offset" => 0.0,
@@ -33,13 +53,24 @@ defaults = Dict(
         "scale_factor" => 1.0, 
         "add_offset" => 0.0,
         "data_type" => "Float64",
+        "_FillValue" => -9999.0),
+    "zcoordinate_c" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int32",
+        "_FillValue" => -9999.0),
+    "zcoordinate_w" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int32",
         "_FillValue" => -9999.0)
-             )
+    )
 chunk_target_size=1000000
 #
 # supporting functions
 #
 typeconv = Dict{String,DataType}( #String to DataType conversion
+    "Int32" => Int32, 
     "Int16" => Int16, 
     "Int8"  => Int8,
     "Float32" => Float32,
@@ -170,8 +201,9 @@ function copy_var(input::NcFile,output,varname,config)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:,:].=out_temp[:,:]
         else #multiple blocks in time
-            blockstep=max(div(prod(in_size),prod(out_chunk_size)),1)
+            nblocks=max(div(prod(in_size),prod(out_chunk_size)),1)
             dimlen=in_size[2]
+            blockstep=max(1,div(dimlen,nblocks))
             ifirst=1
             while ifirst<dimlen
                 ilast=min(ifirst+blockstep-1,dimlen)
@@ -179,19 +211,26 @@ function copy_var(input::NcFile,output,varname,config)
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
                 out_temp[in_temp.==in_dummy].=out_dummy
                 out_var[:,ifirst:ilast]=out_temp[:,:]
-                end
+            end
         end
     elseif in_rank==3
         if prod(in_size)==prod(out_chunk_size)
             #in one go 
-            out_var[:,:,:]=in_var[:,:,:]
-        else #multiple blocks in time
-            blockstep=max(div(prod(in_size),prod(out_chunk_size)),1)
-            dimlen=in_size[2]
+            in_temp=in_var[:,:,:]
+            out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+            out_temp[in_temp.==in_dummy].=out_dummy
+            out_var[:,:,:].=out_temp[:,:,:]
+        else #loop over multiple blocks in time, even though output has different chunks
+            nblocks=max(div(prod(in_size),prod(out_chunk_size)),1)
+            dimlen=in_size[3]
+            blockstep=max(1,div(dimlen,nblocks))
             ifirst=1
             while ifirst<dimlen
                 ilast=min(ifirst+blockstep-1,dimlen)
-                out_var[:,:,ifirst:ilast]=in_var[:,:,ifirst:ilast]
+                in_temp=in_var[:,:,ifirst:ilast]
+                out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+                out_temp[in_temp.==in_dummy].=out_dummy
+                out_var[:,:,ifirst:ilast]=out_temp[:,:]
             end
         end
     else
@@ -230,6 +269,22 @@ function copy_strings(input::NcFile,output,varname,config)
     out_temp=replace.(nc_char2string(in_temp),r"\s+" => "")
     println("out_temp= $(out_temp)")
     out_var[:].=out_temp[:]    
+end
+
+"""
+function has_z(input::NcFile,vars::Vector)
+Report if any of the variables has a z coordinate.
+We now take a shortcut and check if the variable is a 3d array.
+"""
+function has_z(input::NcFile,vars::Vector)
+    result=false
+    for varname in vars
+        r=length(size(input.vars[varname]))
+        if r==3
+            result=true
+        end
+    end
+    return result
 end
 
 #
@@ -282,7 +337,11 @@ function main(args)
         copy_var(his,out,"station_x_coordinate",config)
         copy_var(his,out,"station_y_coordinate",config)
         copy_strings(his,out,"station_name",config)
-        ## TODO
+        if has_z(his,vars)
+            copy_var(his,out,"zcoordinate_c",config)
+            copy_var(his,out,"zcoordinate_w",config)
+        end
+        ## TODO 
     else # expect history file and generate default config
         hisfile=first(args)
         if !isfile(hisfile)
