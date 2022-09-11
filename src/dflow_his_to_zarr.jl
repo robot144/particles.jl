@@ -341,6 +341,7 @@ function main(args)
             copy_var(his,out,"zcoordinate_c",config)
             copy_var(his,out,"zcoordinate_w",config)
         end
+        Zarr.consolidate_metadata(out)
         ## TODO 
     else # expect history file and generate default config
         hisfile=first(args)

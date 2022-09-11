@@ -32,7 +32,9 @@ z3[:] = ["bla","blabla","blablabla"]
 
 z3 = zopen("example3.zarr")
 z3
-
+# example 4 - remote dataset on nextcloud
+z4=zopen("https://nx7384.your-storageshare.de/apps/sharingpath/wetwin/public/zunormm/ZUNO_his.zarr")
+t4=z4["time"]
 
 
 # inspecting his-file
