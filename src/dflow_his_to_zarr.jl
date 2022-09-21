@@ -12,7 +12,7 @@ debuglevel=1
 #
 # defaults
 #
-try_vars = ["waterlevel","salinity","x_velocity","y_velocity","vicww"] #variables to look for in hisfile
+try_vars = ["waterlevel","salinity","temperature","x_velocity","y_velocity","vicww"] #variables to look for in hisfile
 defaults = Dict(
     "waterlevel" => Dict(
        "scale_factor" => 0.001, 
@@ -20,6 +20,11 @@ defaults = Dict(
        "data_type" => "Int16",
        "_FillValue" => 9999 ),
     "salinity" => Dict(
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "temperature" => Dict(
         "scale_factor" => 0.01, 
         "add_offset" => 0.0,
         "data_type" => "Int16",
@@ -97,6 +102,30 @@ function default_config(hisfile::String)
         config[varname]=varconfig
    end
    return config
+end
+
+"""
+function range_in_chunks(total_range::OrdinalRange, chunksize::Int)
+Divide a range line 1:2:10 into chunks, eg [1:2:5,7:2:9]
+This is often usefull to make a loop where the computations are performed per chunk.
+"""
+function range_in_chunks(total_range::OrdinalRange, chunksize::Int)
+    chunks=Vector{StepRange}()
+    n=length(total_range)
+    n_chunks=max(ceil(Int64,n/chunksize),1)
+    println("#chunks $(n_chunks) chunk size $(chunksize)")
+    for i=1:n_chunks
+       istart=total_range[(i-1)*chunksize+1]
+       istep=((total_range isa UnitRange) ? 1 : total_range.step)
+       if i<n_chunks
+          istop=total_range[i*chunksize]
+       else
+          istop=total_range[end]
+       end
+       chunk=istart:istep:istop
+       push!(chunks,chunk)
+    end
+    return chunks
 end
 
 """
@@ -184,6 +213,7 @@ function copy_var(input::NcFile,output,varname,config)
         #in one go 
         in_temp=in_var[:]
         if out_type<:Int
+            in_temp[in_temp.==in_dummy].=out_offset
             out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:].=out_temp[:]
@@ -197,6 +227,7 @@ function copy_var(input::NcFile,output,varname,config)
         if prod(in_size)==prod(out_chunk_size)
             #in one go 
             in_temp=in_var[:,:]
+            in_temp[in_temp.==in_dummy].=out_offset
             out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:,:].=out_temp[:,:]
@@ -208,29 +239,49 @@ function copy_var(input::NcFile,output,varname,config)
             while ifirst<dimlen
                 ilast=min(ifirst+blockstep-1,dimlen)
                 in_temp=in_var[:,ifirst:ilast]
+                in_temp[in_temp.==in_dummy].=out_offset
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
                 out_temp[in_temp.==in_dummy].=out_dummy
                 out_var[:,ifirst:ilast]=out_temp[:,:]
+                ifirst=ilast
             end
         end
     elseif in_rank==3
         if prod(in_size)==prod(out_chunk_size)
             #in one go 
             in_temp=in_var[:,:,:]
+            in_temp[in_temp.==in_dummy].=out_offset
             out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:,:,:].=out_temp[:,:,:]
         else #loop over multiple blocks in time, even though output has different chunks
-            nblocks=max(div(prod(in_size),prod(out_chunk_size)),1)
+            #buffer_target_size=10^8
+            buffer_target_size=10^9
+            n_per_time=prod(in_size[1:2])
+            blockstep=max(1,ceil(Int64,buffer_target_size/n_per_time))
             dimlen=in_size[3]
-            blockstep=max(1,div(dimlen,nblocks))
-            ifirst=1
-            while ifirst<dimlen
-                ilast=min(ifirst+blockstep-1,dimlen)
-                in_temp=in_var[:,:,ifirst:ilast]
+            for chunk in range_in_chunks(1:dimlen,blockstep)
+                ifirst=chunk.start
+                ilast=chunk.stop
+                thislen=ilast-ifirst+1
+                println("   copying times $(ifirst) - $(ilast) of $(dimlen)")
+                print("<R")
+                in_temp=zeros(in_size[1],in_size[2],thislen)
+                # in_temp=in_var[:,:,ifirst:ilast] # all in one 
+                for i in chunk
+                   in_temp[:,:,(i-ifirst+1)]=in_var[:,:,i]
+                   if rem(i,100)==0
+                      print(".")
+                   end
+                end
+                print(">")
+                in_temp[in_temp.==in_dummy].=out_offset
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
                 out_temp[in_temp.==in_dummy].=out_dummy
-                out_var[:,:,ifirst:ilast]=out_temp[:,:]
+                print("<W")
+                out_var[:,:,ifirst:ilast]=out_temp[:,:,:]
+                println(">")
+                ifirst=ilast
             end
         end
     else
