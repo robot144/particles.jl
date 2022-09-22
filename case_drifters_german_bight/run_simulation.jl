@@ -23,7 +23,7 @@ else
    datadir = "data/dcsm-fm_201703"
 end
 
-dflow_map = load_nc_info(datadir, r"DCSM-FM_0_5nm_...._map.nc")
+dflow_map = load_nc_info(datadir, r"DCSM-FM_05nm_...._map.nc")
 interp = load_dflow_grid(dflow_map, 50, true)
 
 drifter = drifterdata(drifternumber)                                             # Retrieve data of the drifter
