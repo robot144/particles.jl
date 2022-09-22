@@ -90,17 +90,24 @@ function default_config(hisfile::String)
     config=Dict{String,Any}()
     globals=Dict{String,Any}()
     globals["history_file"]=hisfile
-    globals["zarr_file"]=replace(hisfile, ".nc" => ".zarr")
+    zarrname=replace(hisfile, ".nc" => ".zarr")
+    zarrname=replace(zarrname, r".*/" => s"")
+    globals["zarr_file"]=zarrname
     globals["chunk_target_size"]=chunk_target_size
     config["global"]=globals
+    nc=NetCDF.open(hisfile)
+    ncvars=keys(nc)
     for varname in try_vars
-          varconfig=Dict{String,Any}(
-          "scale_factor" => defaults[varname]["scale_factor"],
-          "add_offset"   => defaults[varname]["add_offset"],
-          "data_type"    => defaults[varname]["data_type"],
-        )
-        config[varname]=varconfig
+        if varname in ncvars
+            varconfig=Dict{String,Any}(
+                "scale_factor" => defaults[varname]["scale_factor"],
+                "add_offset"   => defaults[varname]["add_offset"],
+                "data_type"    => defaults[varname]["data_type"],
+            )
+            config[varname]=varconfig
+        end
    end
+   finalize(nc)
    return config
 end
 
@@ -381,6 +388,7 @@ function main(args)
         globalattrs = his.gatts
         out = zgroup(outname,attrs=globalattrs)
         for varname in vars
+            println("copying variable $(varname)")
             copy_var(his,out,varname,config)
         end
         #copy dimensions and coordinates

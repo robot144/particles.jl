@@ -2,7 +2,7 @@
 using Test
 using NetCDF
 
-debuglevel=1
+debuglevel=0
 
 if !@isdefined(Grid)
 mutable struct Grid
@@ -108,7 +108,9 @@ function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
       end
       interp.cached_indices=cached_indices #store to cache for next call to this function
    else
-      println("use cached interpolation weights")
+      if debuglevel>1
+         println("use cached interpolation weights")
+      end
       cached_indices=interp.cached_indices #retrieve from cache
    end
    outvalues=zeros(Float64,size(cached_indices[1]))

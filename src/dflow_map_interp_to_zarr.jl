@@ -49,7 +49,7 @@ defaults = Dict(
 
 # variables appear under different names in the delft3d-fm output files. Here we list the options
 aliases=Dict{String,Vector{String}}(
-    "waterlevel" => ["s0", "mesh2d_s0"],
+    "waterlevel" => ["s1", "mesh2d_s1"],
     "x_velocity" => ["ucx", "mesh2d_ucx"],
     "y_velocity" => ["ucy", "mesh2d_ucy"],
     "salinity"   => ["sal","mesh2d_sal"],
@@ -74,12 +74,13 @@ typeconv = Dict{String,DataType}( #String to DataType conversion
 )
 
 """
-function get_varname(name::String)
+function get_varname(name::String,nc::NcFile)
 Find name of a variable in an nc file using a list of alias values
 Example: xname = get_name("x_node",keys(ncfile))
 returns nothing if variable does not exist on the file
 """
-function get_varname(name::String,ncvarnames)
+function get_varname(name::String,nc::NcFile)
+    ncvarnames=keys(nc)
     if !(name in keys(aliases))
         error("unknown variable")
     end
@@ -156,6 +157,7 @@ function default_config(hisfile::String)
  Example: conf=default_config("myrun_his.nc")
 """
 function default_config(mapfiles::Vector{String})
+    firstmap=first(mapfiles)
     config=Dict{String,Any}()
     globals=Dict{String,Any}()
     globals["map_files"]=mapfiles
@@ -182,7 +184,7 @@ function default_config(mapfiles::Vector{String})
     config["global"]=globals
     ncvarnames=info["varnames"]
     for varname in try_vars
-        ncvarname=get_varname(varname,ncvarnames)
+        ncvarname=get_varname(varname,firstmap)
         if !(ncvarname===nothing)
            varconfig=Dict{String,Any}(
                 "scale_factor" => defaults[varname]["scale_factor"],
@@ -361,6 +363,33 @@ function copy_var(input::NcFile,output,varname,config)
     end
 end
 
+function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config)
+    globals=config["global"]
+    nx=length(xpoints)
+    ny=length(ypoints)
+    # compute size of chunks
+    chunk_target_size=globals["chunk_target_size"]
+    (x_chunksize,y_chunksize)=default_map_chunksize(nx,ny,chunk_target_size)
+    println("(nx,ny)=$((nx,ny))  chunks=$((x_chunksize,y_chunksize))")
+    # name of variable on netcdf file
+    firstmap=first(inputs)
+    nt=length(firstmap["time"])
+    ncname=get_varname(varname,firstmap)
+    # create variable and copy attributes 
+    varatts=firstmap[ncname].atts
+    varatts["_ARRAY_DIMENSIONS"]=["x","y","time"]
+    var = zcreate(Float64, output, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
+    print("times $(nt):")
+    for it=1:nt
+        print(".")
+        temp=load_nc_map_slice(map,ncname,it)
+        temp_interp=interpolate(interp,xpoints,ypoints,temp)
+        var[:,:,it]=temp_interp[:,:]
+    end
+    println("")
+end
+
+
 """
 function copy_strings(input::NcFile,output,varname,config)
 """
@@ -452,7 +481,7 @@ function main(args)
         firstmap=first(map)
         # Create zarr file and start copying metadata
         globalattrs = firstmap.gatts
-        out = zgroup(outname,attrs=globalattrs)
+        output = zgroup(outname,attrs=globalattrs)
         # output coordinates
         islatlon=globals["islatlon"]
         nx=max(1,globals["nx"]-1)
@@ -470,45 +499,35 @@ function main(args)
         ymax=ymax-0.5*dy
         xpoints=collect(range(xmin,stop=xmax,length=nx))
         ypoints=collect(range(ymin,stop=ymax,length=ny))
-        # compute size of chunks
-        chunk_target_size=globals["chunk_target_size"]
-        (x_chunksize,y_chunksize)=default_map_chunksize(nx,ny,chunk_target_size)
         # write coordinates
         xname_node=get_varname("x_node",firstmap)
         xatts=firstmap[xname_node].atts 
+        xatts["_ARRAY_DIMENSIONS"]=["x"]
         println("xatts = $(xatts)")
-        xvar = zcreate(Float64, out, "x_center",length(xpoints),attrs=xatts)
+        xvar = zcreate(Float64, output, "x_center",length(xpoints),attrs=xatts)
         xvar[:]=xpoints[:]
         yname_node=get_varname("y_node",firstmap)
         yatts=firstmap[yname_node].atts 
+        yatts["_ARRAY_DIMENSIONS"]=["y"]
         println("yatts = $(yatts)")
-        yvar = zcreate(Float64, out, "y_center",length(ypoints),attrs=yatts)
+        yvar = zcreate(Float64, output, "y_center",length(ypoints),attrs=yatts)
         yvar[:]=ypoints[:]
         # set up interpolation
         interp=load_dflow_grid(map,50,islatlon)
-
         # interpolate per variable
-        nt=length(firstmap["time"])
         vars=varlist(config)
         for varname in vars
-            ncname=get_varname(varname,firstmap)
-            varatts=firstmap[ncname].atts
-            println("(nx,ny)=$((nx,ny))  chunks=$((x_chunksize,y_chunksize))")
-            var = zcreate(Float64, out, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
-            for it=1:nt
-                temp=load_nc_map_slice(map,ncname,it)
-                temp_interp=interpolate(interp,xpoints,ypoints,temp)
-                var[:,:,it]=temp_interp[:,:]
-            end
+            println("Interpolating for variable $(varname)")
+            interp_var(map,interp,output,varname,xpoints,ypoints,config)
         end
         #copy dimensions and coordinates
-        copy_var(firstmap,out,"time",config)
+        copy_var(firstmap,output,"time",config)
         #TODO
         #if has_z(his,vars)
         #    copy_var(his,out,"zcoordinate_c",config)
         #    copy_var(his,out,"zcoordinate_w",config)
         #end
-        Zarr.consolidate_metadata(out)
+        Zarr.consolidate_metadata(output)
         
     else # expect list of mapfiles and generate default config
         first_mapfile=first(args)

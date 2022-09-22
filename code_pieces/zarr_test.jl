@@ -37,8 +37,16 @@ z4=zopen("https://nx7384.your-storageshare.de/apps/sharingpath/wetwin/public/zun
 t4=z4["time"]
 
 
-# inspecting his-file
-s=NetCDF.open("test_data/locxxz_his.nc")
-
 # inspecting map-file
 m=NetCDF.open("test_data/locxxz_map.nc")
+
+# inspecting a zarr file
+z5=zopen("estuary_map.zarr")
+x5=z5["x_center"]
+x5.attrs
+
+# inspecting his-file
+s=NetCDF.open("test_data/locxxz_his.nc")
+z5=zopen("locxxz_his.zarr")
+t5=z5["time"]
+t5.attrs
