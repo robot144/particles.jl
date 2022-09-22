@@ -52,7 +52,7 @@ aliases=Dict{String,Vector{String}}(
     "waterlevel" => ["s1", "mesh2d_s1"],
     "x_velocity" => ["ucx", "mesh2d_ucx"],
     "y_velocity" => ["ucy", "mesh2d_ucy"],
-    "salinity"   => ["sal","mesh2d_sal"],
+    "salinity"   => ["sa1","mesh2d_sa1"], #sa1 not sal (one)?
     "x_center"   => ["FlowElem_xcc","mesh2d_face_x"],
     "y_center"   => ["FlowElem_ycc","mesh2d_face_y"],
     "z_center"   => ["mesh2d_layer_z"],
@@ -131,7 +131,13 @@ function get_coord_info(mapfiles::Vector{String})
     ymin=minimum(ys)
     xs_center=firstmap[xname_center][:]
     ncells=[length(xs_center)]
-    varnames=keys(firstmap)
+    varnames=[]
+    for varname in try_vars
+        ncvar=get_varname(varname,firstmap)
+        if !(ncvar===nothing)
+            push!(varnames,varname)
+        end
+    end
     finalize(firstmap)
     # look at other map files
     for i=2:length(mapfiles)
@@ -157,7 +163,7 @@ function default_config(hisfile::String)
  Example: conf=default_config("myrun_his.nc")
 """
 function default_config(mapfiles::Vector{String})
-    firstmap=first(mapfiles)
+    #firstmap=first(mapfiles)
     config=Dict{String,Any}()
     globals=Dict{String,Any}()
     globals["map_files"]=mapfiles
@@ -182,17 +188,14 @@ function default_config(mapfiles::Vector{String})
     globals["nx"]=nx
     globals["ny"]=ny
     config["global"]=globals
-    ncvarnames=info["varnames"]
+    varnames=info["varnames"]
     for varname in try_vars
-        ncvarname=get_varname(varname,firstmap)
-        if !(ncvarname===nothing)
-           varconfig=Dict{String,Any}(
-                "scale_factor" => defaults[varname]["scale_factor"],
-                "add_offset"   => defaults[varname]["add_offset"],
-                "data_type"    => defaults[varname]["data_type"],
-            )
-            config[varname]=varconfig
-        end
+        varconfig=Dict{String,Any}(
+            "scale_factor" => defaults[varname]["scale_factor"],
+            "add_offset"   => defaults[varname]["add_offset"],
+            "data_type"    => defaults[varname]["data_type"],
+        )
+        config[varname]=varconfig
    end
    return config
 end
@@ -375,14 +378,17 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
     firstmap=first(inputs)
     nt=length(firstmap["time"])
     ncname=get_varname(varname,firstmap)
+    if ncname===nothing
+        error("could not find variable $(varname) in $(firstmap.name).")
+    end
     # create variable and copy attributes 
     varatts=firstmap[ncname].atts
-    varatts["_ARRAY_DIMENSIONS"]=["x","y","time"]
+    varatts["_ARRAY_DIMENSIONS"]=["time","y","x"]
     var = zcreate(Float64, output, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
     print("times $(nt):")
     for it=1:nt
         print(".")
-        temp=load_nc_map_slice(map,ncname,it)
+        temp=load_nc_map_slice(inputs,ncname,it)
         temp_interp=interpolate(interp,xpoints,ypoints,temp)
         var[:,:,it]=temp_interp[:,:]
     end
@@ -477,7 +483,7 @@ function main(args)
             error("Output name $(outname) exists. Will not overwrite.")
         end
         # initialize netcdf maps files
-        map=[NetCDF.open(filename) for filename in mapfiles]
+        map=[NetCDF.open(filename) for filename in map_files]
         firstmap=first(map)
         # Create zarr file and start copying metadata
         globalattrs = firstmap.gatts
@@ -503,13 +509,11 @@ function main(args)
         xname_node=get_varname("x_node",firstmap)
         xatts=firstmap[xname_node].atts 
         xatts["_ARRAY_DIMENSIONS"]=["x"]
-        println("xatts = $(xatts)")
         xvar = zcreate(Float64, output, "x_center",length(xpoints),attrs=xatts)
         xvar[:]=xpoints[:]
         yname_node=get_varname("y_node",firstmap)
         yatts=firstmap[yname_node].atts 
         yatts["_ARRAY_DIMENSIONS"]=["y"]
-        println("yatts = $(yatts)")
         yvar = zcreate(Float64, output, "y_center",length(ypoints),attrs=yatts)
         yvar[:]=ypoints[:]
         # set up interpolation
