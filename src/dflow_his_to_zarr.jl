@@ -414,6 +414,7 @@ function main(args)
         if(debuglevel>0)
             TOML.print(config)
         end
+        @info "Configuration has been written to $(configfile)"
     end
 end
 
