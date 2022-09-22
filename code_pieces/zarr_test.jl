@@ -14,7 +14,7 @@ z2[1:10,1:10]
 
 #example 2
 groupattrs = Dict("String attribute"=>"One", "Int attribute"=>5, "Float attribute"=>10.5)
-g = zgroup("example2.zarr",attrs=groupattrs)
+g = zgroup("example2.zarr",attrs=groupattrs, consolidated=true)
 
 att1 = Dict("attribute"=>5)
 v1 = zcreate(Int16, g, "var1_int",10,121,attrs=att1, chunks = (10,121))

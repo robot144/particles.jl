@@ -197,6 +197,7 @@ function copy_var(input::NcFile,output,varname,config)
         if prod(in_size)==prod(out_chunk_size)
             #in one go 
             in_temp=in_var[:,:]
+            in_temp[in_temp.==in_dummy].=out_offset #make type conversion safe; ignore results later
             out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:,:].=out_temp[:,:]
@@ -208,15 +209,19 @@ function copy_var(input::NcFile,output,varname,config)
             while ifirst<dimlen
                 ilast=min(ifirst+blockstep-1,dimlen)
                 in_temp=in_var[:,ifirst:ilast]
+                in_temp[in_temp.==in_dummy].=out_offset #make type conversion safe; ignore results later
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
                 out_temp[in_temp.==in_dummy].=out_dummy
                 out_var[:,ifirst:ilast]=out_temp[:,:]
+                println("conversion $(varname) at $(round(100*ilast/dimlen))%")
+                ifirst=ilast+1
             end
         end
     elseif in_rank==3
         if prod(in_size)==prod(out_chunk_size)
             #in one go 
             in_temp=in_var[:,:,:]
+            in_temp[in_temp.==in_dummy].=out_offset #make type conversion safe; ignore results later
             out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
             out_temp[in_temp.==in_dummy].=out_dummy
             out_var[:,:,:].=out_temp[:,:,:]
@@ -228,9 +233,12 @@ function copy_var(input::NcFile,output,varname,config)
             while ifirst<dimlen
                 ilast=min(ifirst+blockstep-1,dimlen)
                 in_temp=in_var[:,:,ifirst:ilast]
+                in_temp[in_temp.==in_dummy].=out_offset #make type conversion safe; ignore results later
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
                 out_temp[in_temp.==in_dummy].=out_dummy
-                out_var[:,:,ifirst:ilast]=out_temp[:,:]
+                out_var[:,:,ifirst:ilast]=out_temp[:,:,:]
+                println("conversion $(varname) at $(round(100*ilast/dimlen))%")
+                ifirst=ilast+1
             end
         end
     else
