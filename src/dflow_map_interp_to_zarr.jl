@@ -505,6 +505,8 @@ function main(args)
         ymax=ymax-0.5*dy
         xpoints=collect(range(xmin,stop=xmax,length=nx))
         ypoints=collect(range(ymin,stop=ymax,length=ny))
+        println("x: $(xmin) : $(dx) $(xmax) : $(nx)")
+        println("y: $(ymin) : $(dy) $(ymax) : $(ny)")
         # write coordinates
         xname_node=get_varname("x_node",firstmap)
         xatts=firstmap[xname_node].atts 
