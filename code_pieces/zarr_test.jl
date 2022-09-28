@@ -50,3 +50,13 @@ s=NetCDF.open("test_data/locxxz_his.nc")
 z5=zopen("locxxz_his.zarr")
 t5=z5["time"]
 t5.attrs
+
+# inspecting zunormm maps from a  zarr file
+z5=zopen("ZUNO_map.zarr")
+x5=z5["x_center"][:]
+y5=z5["y_center"][:]
+sal5=z5["salinity"][:,:,:]
+
+
+x5.attrs
+

@@ -282,9 +282,13 @@ function copy_var(input::NcFile,output,varname,config)
                    end
                 end
                 print(">")
-                in_temp[in_temp.==in_dummy].=out_offset
+                bool_dummy=in_temp.==in_dummy
+                bool_nan=isnan.(in_temp)
+                in_temp[bool_dummy].=out_offset
+                in_temp[bool_nan].=out_offset
                 out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
-                out_temp[in_temp.==in_dummy].=out_dummy
+                out_temp[bool_dummy].=out_dummy
+                out_temp[bool_nan].=out_dummy
                 print("<W")
                 out_var[:,:,ifirst:ilast]=out_temp[:,:,:]
                 println(">")
