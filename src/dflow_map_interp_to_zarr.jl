@@ -44,8 +44,23 @@ defaults = Dict(
         "scale_factor" => 1.0, 
         "add_offset" => 0.0,
         "data_type" => "Float64",
+        "_FillValue" => -9999.0),
+    "x_center" => Dict(
+        "scale_factor" => 1.0, 
+        "add_offset" => 0.0,
+        "data_type" => "Float64",
+        "_FillValue" => -9999.0),
+    "y_center" => Dict(
+        "scale_factor" => 1.0, 
+        "add_offset" => 0.0,
+        "data_type" => "Float64",
+        "_FillValue" => -9999.0),
+    "z_center" => Dict(
+        "scale_factor" => 1.0, 
+        "add_offset" => 0.0,
+        "data_type" => "Float64",
         "_FillValue" => -9999.0)
-        )
+     )
 
 # variables appear under different names in the delft3d-fm output files. Here we list the options
 aliases=Dict{String,Vector{String}}(
@@ -55,9 +70,10 @@ aliases=Dict{String,Vector{String}}(
     "salinity"   => ["sa1","mesh2d_sa1"], #sa1 not sal (one)?
     "x_center"   => ["FlowElem_xcc","mesh2d_face_x"],
     "y_center"   => ["FlowElem_ycc","mesh2d_face_y"],
-    "z_center"   => ["mesh2d_layer_z"],
+    "z_center"   => ["mesh2d_layer_z","LayCoord_cc"], #1d
     "x_node"     => ["mesh2d_node_x","NetNode_x"],
-    "y_node"     => ["mesh2d_node_y","NetNode_y"]
+    "y_node"     => ["mesh2d_node_y","NetNode_y"],
+    "time"       => ["time"]
 )
 #znames_iface=["mesh2d_layer_z"]
 
@@ -159,8 +175,8 @@ function get_coord_info(mapfiles::Vector{String})
 end
 
 """
-function default_config(hisfile::String)
- Example: conf=default_config("myrun_his.nc")
+function default_config(mapfiles::Vector{String})
+ Example: conf=default_config("myrun_map_interp.nc")
 """
 function default_config(mapfiles::Vector{String})
     #firstmap=first(mapfiles)
@@ -200,17 +216,11 @@ function default_config(mapfiles::Vector{String})
    return config
 end
 
-function default_map_nchunks(nx,ny,ntarget)
-    nx_chunks=max(1,round(Int64,nx/sqrt(ntarget))) #product of chuns in both directions
-    ny_chunks=max(1,round(Int64,ny/sqrt(ntarget)))
-    if nx==1
-        ny_chunks=max(1,round(Int64,ny/ntarget))
-    elseif ny==1
-        nx_chunks=max(1,round(Int64,nx/ntarget))
-    end
-    return (nx_chunks,ny_chunks)
-end
-
+"""
+function default_map_chunksize(nx,ny,ntarget)
+ example: (ncx,ncy)=default_map_chunksize(nx,ny,ntarget)
+ with 40 x 10 cells and a target size of 100, this will give 10x10 chunks
+ """
 function default_map_chunksize(nx,ny,ntarget)
     nx_chunks=max(1,round(Int64,sqrt(ntarget)))
     ny_chunks=max(1,round(Int64,sqrt(ntarget)))
@@ -277,8 +287,12 @@ end
 function copy_var(input::NcFile,output,varname,config)
 """
 function copy_var(input::NcFile,output,varname,config)
-    #input
-    in_var=input.vars[varname]
+    println("copy variable name=$(varname)")
+    ncname=get_varname(varname,input)
+    if ncname===nothing
+        error("could not find variable $(varname) in $(firstmap.name).")
+    end
+    in_var=input.vars[ncname]
     in_atts=in_var.atts
     in_type=typeof(in_var).parameters[1]
     in_dummy=get(in_atts,"_FillValue",9999.0)
@@ -367,9 +381,20 @@ function copy_var(input::NcFile,output,varname,config)
 end
 
 function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config)
+    println("interpolating variable name=$(varname)")
     globals=config["global"]
     nx=length(xpoints)
     ny=length(ypoints)
+    if !haskey(config,varname) #create empty one if absent
+        config[varname]=Dict{String,Any}()
+    end
+    #output time and scaling
+    out_offset=get(config[varname],"add_offset",defaults[varname]["add_offset"])
+    out_scale=get(config[varname],"scale_factor",defaults[varname]["scale_factor"])
+    out_dummy=get(config[varname],"_FillValue",defaults[varname]["_FillValue"])
+    out_type_str=get(config[varname],"data_type",defaults[varname]["data_type"])
+    out_type=typeconv[out_type_str]
+    println("  write output as $(out_type_str) scaling $(out_scale) offset $(out_offset)")
     # compute size of chunks
     chunk_target_size=globals["chunk_target_size"]
     (x_chunksize,y_chunksize)=default_map_chunksize(nx,ny,chunk_target_size)
@@ -381,16 +406,93 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
     if ncname===nothing
         error("could not find variable $(varname) in $(firstmap.name).")
     end
+    in_dims=vardims(firstmap.vars[ncname])
+    hastime="time" in in_dims
+    is2d=(length(in_dims)==2)
+    if !hastime
+        is2d=(length(in_dims)==1)
+    end
+    in_size=size(firstmap.vars[ncname])
     # create variable and copy attributes 
     varatts=firstmap[ncname].atts
-    varatts["_ARRAY_DIMENSIONS"]=["time","y","x"]
-    var = zcreate(Float64, output, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
-    print("times $(nt):")
-    for it=1:nt
-        print(".")
-        temp=load_nc_map_slice(inputs,ncname,it)
-        temp_interp=interpolate(interp,xpoints,ypoints,temp)
-        var[:,:,it]=temp_interp[:,:]
+    varatts["scale_factor"]=out_scale
+    varatts["add_offset"]=out_offset
+    in_dummy=get(varatts,"_FillValue",9999.0)
+    varatts["_FillValue"]=out_dummy
+    #println("  attributes = $(varatts)")
+    
+    if is2d
+        if hastime
+            varatts["_ARRAY_DIMENSIONS"]=["time","y","x"]
+            var = zcreate(out_type, output, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
+            print("times $(nt):")
+            for it=1:nt
+                print("|")
+                in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
+                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                in_temp[in_temp.==in_dummy].=out_offset
+                out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+                out_temp[in_temp.==in_dummy].=out_dummy
+                out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                var[:,:,it]=out_temp[:,:]
+            end
+        else
+            varatts["_ARRAY_DIMENSIONS"]=["y","x"]
+            var = zcreate(out_type, output, varname,(nx,ny)...,attrs=varatts,chunks=(x_chunksize,y_chunksize))
+            print("time independent")
+            it=0
+            in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
+            in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+            in_temp[in_temp.==in_dummy].=out_offset
+            out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+            out_temp[in_temp.==in_dummy].=out_dummy
+            out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+            var[:,:]=out_temp[:,:]
+        end
+    else #is 3D
+        if hastime
+            nz=in_size[1]
+            varatts["_ARRAY_DIMENSIONS"]=["time","z","y","x"]
+            if (nx*ny*nz)<chunk_target_size
+                var = zcreate(out_type, output, varname,(nx,ny,nz,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,nz,1))
+            else
+                var = zcreate(out_type, output, varname,(nx,ny,nz,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1,1))
+            end
+            print("times $(nt):")
+            for it=1:nt
+                print("|")
+                for ilayer in 1:nz
+                    print(".")
+                    in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
+                    in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                    in_temp[in_temp.==in_dummy].=out_offset
+                    out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+                    out_temp[in_temp.==in_dummy].=out_dummy
+                    out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                    var[:,:,ilayer,it]=out_temp[:,:]
+                end
+            end
+        else
+            nz=in_size[1]
+            varatts["_ARRAY_DIMENSIONS"]=["z","y","x"]
+            if (nx*ny*nz)<chunk_target_size
+                var = zcreate(out_type, output, varname,(nx,ny,nz)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,nz,1))
+            else
+                var = zcreate(out_type, output, varname,(nx,ny,nz)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
+            end
+            print("time independent")
+            for ilayer in 1:nz
+                print(".")
+                it=0
+                in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
+                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                in_temp[in_temp.==in_dummy].=out_offset
+                out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
+                out_temp[in_temp.==in_dummy].=out_dummy
+                out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                var[:,:,ilayer]=out_temp[:,:]
+            end
+        end
     end
     println("")
 end
@@ -528,11 +630,8 @@ function main(args)
         end
         #copy dimensions and coordinates
         copy_var(firstmap,output,"time",config)
-        #TODO
-        #if has_z(his,vars)
-        #    copy_var(his,out,"zcoordinate_c",config)
-        #    copy_var(his,out,"zcoordinate_w",config)
-        #end
+        copy_var(firstmap,output,"z_center",config)
+        # create consolidate_metadata for faster internet access
         Zarr.consolidate_metadata(output)
         
     else # expect list of mapfiles and generate default config
