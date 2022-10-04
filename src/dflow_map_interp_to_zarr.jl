@@ -14,7 +14,9 @@ debuglevel=1
 #
 # defaults
 #
-try_vars = ["waterlevel","x_velocity","y_velocity","salinity"] #variables to look for in hisfile
+# these variables are added to the configuration by default
+try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature"] 
+# default settings per variable
 defaults = Dict(
     "waterlevel" => Dict(
         "name" => "waterlevel",
@@ -40,6 +42,12 @@ defaults = Dict(
         "add_offset" => 0.0,
         "data_type" => "Int16",
         "_FillValue" => 9999 ),
+    "temperature" => Dict(
+        "name" => "temperature",
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
     "time" => Dict(
         "scale_factor" => 1.0, 
         "add_offset" => 0.0,
@@ -59,19 +67,26 @@ defaults = Dict(
         "scale_factor" => 1.0, 
         "add_offset" => 0.0,
         "data_type" => "Float64",
+        "_FillValue" => -9999.0),
+    "z_center_3d" => Dict(
+        "scale_factor" => 0.1, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
         "_FillValue" => -9999.0)
      )
 
 # variables appear under different names in the delft3d-fm output files. Here we list the options
 aliases=Dict{String,Vector{String}}(
-    "waterlevel" => ["s1", "mesh2d_s1"],
-    "x_velocity" => ["ucx", "mesh2d_ucx"],
-    "y_velocity" => ["ucy", "mesh2d_ucy"],
-    "salinity"   => ["sa1","mesh2d_sa1"], #sa1 not sal (one)?
-    "x_center"   => ["FlowElem_xcc","mesh2d_face_x"],
-    "y_center"   => ["FlowElem_ycc","mesh2d_face_y"],
-    "z_center"   => ["mesh2d_layer_z","LayCoord_cc"], #1d
-    "x_node"     => ["mesh2d_node_x","NetNode_x"],
+    "waterlevel"  => ["s1", "mesh2d_s1"],
+    "x_velocity"  => ["ucx", "mesh2d_ucx"],
+    "y_velocity"  => ["ucy", "mesh2d_ucy"],
+    "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one)?
+    "temperature" => ["tem1","mesh2d_tem1"], 
+    "x_center"    => ["FlowElem_xcc","mesh2d_face_x"],
+    "y_center"    => ["FlowElem_ycc","mesh2d_face_y"],
+    "z_center"    => ["mesh2d_layer_z","LayCoord_cc"], #1d
+    "z_center_3d" => ["mesh2d_flowelem_zcc"], #3d
+    "x_node"      => ["mesh2d_node_x","NetNode_x"],
     "y_node"     => ["mesh2d_node_y","NetNode_y"],
     "time"       => ["time"]
 )
@@ -284,13 +299,17 @@ function vardims(var::NcVar)
 end
 
 """
-function copy_var(input::NcFile,output,varname,config)
+function copy_var(input::NcFile,output,varname,config,stoponmissing=true)
 """
-function copy_var(input::NcFile,output,varname,config)
+function copy_var(input::NcFile,output,varname,config,stop_on_missing=true)
     println("copy variable name=$(varname)")
     ncname=get_varname(varname,input)
-    if ncname===nothing
-        error("could not find variable $(varname) in $(firstmap.name).")
+    if (ncname===nothing)
+       if stop_on_missing
+          error("could not find variable $(varname) in $(input.name).")
+       else
+          return nothing
+       end
     end
     in_var=input.vars[ncname]
     in_atts=in_var.atts
@@ -380,6 +399,23 @@ function copy_var(input::NcFile,output,varname,config)
     end
 end
 
+function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy)
+   in_dummies=in_values.==in_dummy
+   in_nans=isnan.(in_values)
+   in_values[in_dummies].=out_offset
+   in_values[in_nans].=out_offset
+   out_max=typemax(out_type)
+   out_min=typemin(out_type)
+   temp=(in_values.-out_offset)./out_scale
+   temp=min.(temp,out_max)
+   temp=max.(temp,out_min)
+   out_temp=round.(out_type,temp)
+   out_temp[in_dummies].=out_dummy
+   out_temp[in_nans].=out_dummy
+   #out_temp[in_values.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+   return out_temp
+end
+
 function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config)
     println("interpolating variable name=$(varname)")
     globals=config["global"]
@@ -430,10 +466,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 print("|")
                 in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
                 in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
-                in_temp[in_temp.==in_dummy].=out_offset
-                out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
-                out_temp[in_temp.==in_dummy].=out_dummy
-                out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                 var[:,:,it]=out_temp[:,:]
             end
         else
@@ -443,11 +476,8 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             it=0
             in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
             in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
-            in_temp[in_temp.==in_dummy].=out_offset
-            out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
-            out_temp[in_temp.==in_dummy].=out_dummy
-            out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
-            var[:,:]=out_temp[:,:]
+            out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
+            var=out_temp
         end
     else #is 3D
         if hastime
@@ -465,10 +495,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                     print(".")
                     in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
                     in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
-                    in_temp[in_temp.==in_dummy].=out_offset
-                    out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
-                    out_temp[in_temp.==in_dummy].=out_dummy
-                    out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                    out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                     var[:,:,ilayer,it]=out_temp[:,:]
                 end
             end
@@ -486,10 +513,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 it=0
                 in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
                 in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
-                in_temp[in_temp.==in_dummy].=out_offset
-                out_temp=round.(out_type,(in_temp.-out_offset)./out_scale)
-                out_temp[in_temp.==in_dummy].=out_dummy
-                out_temp[in_temp.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
+                out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                 var[:,:,ilayer]=out_temp[:,:]
             end
         end
@@ -629,8 +653,12 @@ function main(args)
             interp_var(map,interp,output,varname,xpoints,ypoints,config)
         end
         #copy dimensions and coordinates
+        nc_z=get_varname("z_center_3d",firstmap) #try 3d z coords
+        if !(nc_z==nothing)
+            interp_var(map,interp,output,"z_center_3d",xpoints,ypoints,config)
+        end
+        copy_var(firstmap,output,"z_center",config,false) #try 1d z coords
         copy_var(firstmap,output,"time",config)
-        copy_var(firstmap,output,"z_center",config)
         # create consolidate_metadata for faster internet access
         Zarr.consolidate_metadata(output)
         
@@ -665,6 +693,6 @@ end
 mapfiles=["test_data/estuary_0000_map.nc", "test_data/estuary_0000_map.nc"]
 #mapfiles=["test_data/locxxz_map.nc"]
 configfile=["config_map_interp.toml"]
-#main(ARGS)
+main(ARGS)
 
 nothing
