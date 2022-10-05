@@ -16,7 +16,7 @@ using NetCDF
 using Dates
 using Glob
 
-const debuglevel = 1 #0-nothing, larger more output
+debuglevel = 1 #0-nothing, larger more output
 
 """
 Using the CmemsData struct the file-handling becomes object-oriented.

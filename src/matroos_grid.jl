@@ -16,7 +16,7 @@
 using NetCDF
 using Dates
 
-const debuglevel=1 #0-nothing, larger more output
+debuglevel=1 #0-nothing, larger more output
 
 """
 Using the MatroosData struct the file-handling becomes object-oriented.
