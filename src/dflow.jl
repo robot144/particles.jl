@@ -6,7 +6,7 @@ using Dates
 using Glob
 # include("unstructured_grid.jl")
 
-const debuglevel = 1 # 0-nothing, larger more output
+debuglevel = 1 # 0-nothing, larger more output
 
 
 """

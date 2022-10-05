@@ -24,6 +24,7 @@ RawArray = "d3d335b2-f152-507c-820e-958e337efb65"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+Zarr = "0a941bbe-ad1d-11e8-39d9-ab76183a1d99"
 
 [compat]
 NetCDF = "0.11"
