@@ -8,7 +8,7 @@ using Dates
 using Printf
 using LabelledArrays
 
-const debug_level = 2
+debuglevel = 1
 
 """
    d = default_userdata()
@@ -36,6 +36,7 @@ function default_userdata()
         # results that are kept in memmory
         "keep_particles" => false,
         "keep_particle_times" => [],
+        "all_particles" => [],
         # results written to netcdf file
         "write_maps" => false,
         "write_maps_times" => [],
@@ -59,10 +60,11 @@ function run_simulation(d)
     npart = d["nparticles"]
     nvars = length(vars)
     p = d["particles"]
+    p_all=d["all_particles"] #if requested keep particles at intermediate times
     Plots.default(:size, d["plot_maps_size"])
 
     # show inputs
-    if debug_level > 2
+    if debuglevel > 2
         println("configuration")
         display(d)
     end
@@ -111,6 +113,12 @@ function run_simulation(d)
         print_times(tref, write_maps_times)
         (nc_out, ncvars) = initialize_netcdf_output(d)
     end
+    if d["keep_particles"] # in memmory storage
+        keep_particle_times = d["keep_particle_times"]
+        target_times = sort(union(keep_particle_times, target_times))
+        print("writing output to memory at t = ")
+        print_times(tref, keep_particle_times)
+    end
 
     # if the end time of the simulation is after the last output request
     # then still simulate until end times. TODO This is debatable.
@@ -142,7 +150,7 @@ function run_simulation(d)
         end
         t = simulate!(p, t, t_stop, d)
         if (d["plot_maps"]) && (t_stop in plot_maps_times)
-            (debug_level > 1) && println("plotting map output")
+            (debuglevel > 1) && println("plotting map output")
             Plots.default(:size, d["plot_maps_size"])
             fig1 = d["plot_maps_background"](d)
             d["plot_maps_func"](fig1, d, p)
@@ -167,6 +175,9 @@ function run_simulation(d)
                     NetCDF.putvar(ncvars[vari], p[vari, :]; start = start, count = count)
                 end
             end
+        end
+        if (d["keep_particles"]) && (t_stop in keep_particle_times)
+            push!(p_all,copy(p))
         end
     end
 
@@ -197,7 +208,7 @@ function simulate!(p, t, t_stop, d)
     # s = @MVector zeros(length(variables))
     if d["time_direction"] == :forwards
         while (t < (t_stop - 0.25 * Δt))
-            #   (debug_level >= 2) && println("... t=$(t) < $(t_stop)")
+            #   (debuglevel >= 2) && println("... t=$(t) < $(t_stop)")
             for i = 1:n
                 s = @view p[:, i]
                 forward!(f!, Δt, ∂s, s, t, i, d)
@@ -206,7 +217,7 @@ function simulate!(p, t, t_stop, d)
         end
     elseif d["time_direction"] == :backwards
         while (t > (t_stop + 0.25 * Δt))
-            #   (debug_level >= 2) && println("... t=$(t) > $(t_stop)")
+            #   (debuglevel >= 2) && println("... t=$(t) > $(t_stop)")
             for i = 1:n
                 s = @view p[:, i]
                 f!(∂s, s, t, i, d)
