@@ -102,8 +102,8 @@ function test3()
    u1,v1=initialize_interpolation(dflow_map,interp,t0)
    u_value=u1(3.33, 47.99, 0.0, 1800.0)
    @test u_value==0.0435357731534879
-   u_value=u1(3.33, 47.99, 0.0, 86400.0)
-   @test u_value==-0.048490750670203864
+   u_value=u1(3.33, 47.99, 0.0, 86399.0)
+   @test u_value==-0.048490442244461425
    u_value=u1(3.33, 47.99, 0.0, 43200.0)
    @test u_value==0
    u_value=u1(3.33, 47.99, 0.0, 43199.0)

@@ -93,9 +93,10 @@ end
    waterlevel = load_nc_map_slice(map,"s1",1)
 Load data for a time-dependent variable for a specific time and for all domains.
 """
-function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1)
+function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1, domainnr = 0)
    result = []
-   for i = 1:length(map)
+   domainnr != 0 || (domainnr = 1:length(map))
+   for i in domainnr
       # push!(result,map[i][varname][:,itime])
       if ndims(map[i][varname]) == 2
          push!(result, map[i][varname][:,itime])
@@ -230,7 +231,7 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    no_domains = length(interp.grids)
    multiple_runs = length(dflow_map) > no_domains # multiple runs per domain available
    if multiple_runs
-      times_cache_all = [get_times([map], reftime) for map in dflow_map]
+      times_cache_per_run = [get_times([dflow_map[i]], reftime) for i in 1:no_domains:length(dflow_map)]
       dflow_map_all = dflow_map
       dflow_map_ind = 1:no_domains
       dflow_map = dflow_map[dflow_map_ind]
@@ -238,6 +239,7 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
 
    # keep 3 times in memory
    time_cache = zeros(3)
+   time_cache_all_domains = zeros(3,no_domains)
    var_cache = Array{Any,1}(undef, 3)
    initialized = false
    if !haskey(dflow_map[1].vars, varname) 
@@ -249,30 +251,33 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          throw(ArgumentError("$varname is not a variable in the map"))
       end
    end
+   time_cache_all_domains = repeat(times_cache[1:3], 1, no_domains)
+   time_cache_index_all_domains = repeat([3], no_domains) # index of last cached field in list of all available times
    for ti = 1:3
-      time_cache[ti] = times_cache[ti]
       var_cache[ti] = load_nc_map_slice(dflow_map, varname, ti)
    end
-   time_cache_index = 3 # index of last cached field in list of all available times
-   (debuglevel > 4) && println("Initial cache index=$(time_cache_index) ")
+   (debuglevel > 4) && println("Initial cache index=$(time_cache_index_all_domains[1]) ")
    """
        update_cache_forwards(t)
        Refresh the cached fields in the forwards time directions if needed.
    """
-   function update_cache_forwards(t)
+   function update_cache_forwards(t, domainnr)
+      time_cache = time_cache_all_domains[:, domainnr]
+      time_cache_index = time_cache_index_all_domains[domainnr]
+
       # First, update dflow_map and refresh cache
       if multiple_runs
-         dflow_map_ind_needed = findlast([(t >= times[1]) && (t <= times[end]) for times in times_cache_all])
-         if !isnothing(dflow_map_ind_needed)
-            dflow_map_ind_needed = (dflow_map_ind_needed-no_domains+1):dflow_map_ind_needed
+         run_ind_needed = findlast([(t >= times[1]) && (t <= times[end]) for times in times_cache_per_run])
+         if !isnothing(run_ind_needed)
+            dflow_map_ind_needed = ((run_ind_needed-1)*no_domains+1) : (run_ind_needed*no_domains)
             if dflow_map_ind_needed != dflow_map_ind # update of dflow_map needed (e.g. using run02/run_0000_map.nc instead of run01/run_0000_map.nc)
-               (debuglevel >= 1) && println("t = $(t) - Switching to dflowfm_map based on: ..\\$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[1]].name)[end-2:end]))")
+               (debuglevel >= 1) && println("t = $(t) - Switching to dflowfm_map based on: ../$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[1]].name)[end-2:end]...))")
                dflow_map_ind = dflow_map_ind_needed
                dflow_map = dflow_map_all[dflow_map_ind]
-               times_cache = times_cache_all[dflow_map_ind[1]]
+               times_cache = times_cache_per_run[run_ind_needed]
                for ti = 1:3
                   time_cache[ti] = times_cache[ti]
-                  var_cache[ti] = load_nc_map_slice(dflow_map, varname, ti)
+                  var_cache[ti][domainnr] = load_nc_map_slice(dflow_map, varname, ti, -1, domainnr)[1]
                end
                time_cache_index = 3 # index of last cached field in list of all available times
             end
@@ -289,15 +294,15 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          time_cache[1] = time_cache[2]
          time_cache[2] = time_cache[3]
          time_cache[3] = times_cache[time_cache_index + 1]
-         var_cache[1] = var_cache[2]
-         var_cache[2] = var_cache[3]
-         var_cache[3] = load_nc_map_slice(dflow_map, varname, time_cache_index + 1)
+         var_cache[1][domainnr] = var_cache[2][domainnr]
+         var_cache[2][domainnr] = var_cache[3][domainnr]
+         var_cache[3][domainnr] = load_nc_map_slice(dflow_map, varname, time_cache_index + 1, -1, domainnr)[1]
          time_cache_index += 1
       elseif t < times_cache[1]
-         error("Trying to access before first map t=$(t) < $(times_cache[0])")
+         error("Trying to access before first map t=$(t) < $(times_cache[1])")
       else # complete refresh of cache
          (debuglevel >= 2) && println("refresh cache")
-         ti = findfirst(tt -> tt >= t, times_cache)
+         ti = findfirst(tt -> tt > t, times_cache)
          (ti != length(times_cache)) || (ti = ti - 1)
          (ti != 1) || (ti = ti + 1)
          (debuglevel >= 4) && println("ti=$(ti), t=$(t)")
@@ -305,12 +310,15 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          time_cache[1] = times_cache[ti - 1]
          time_cache[2] = times_cache[ti]
          time_cache[3] = times_cache[ti + 1]
-         var_cache[1] = load_nc_map_slice(dflow_map, varname, ti - 1)
-         var_cache[2] = load_nc_map_slice(dflow_map, varname, ti)
-         var_cache[3] = load_nc_map_slice(dflow_map, varname, ti + 1)
+         var_cache[1][domainnr] = load_nc_map_slice(dflow_map, varname, ti - 1, -1, domainnr)[1]
+         var_cache[2][domainnr] = load_nc_map_slice(dflow_map, varname, ti    , -1, domainnr)[1]
+         var_cache[3][domainnr] = load_nc_map_slice(dflow_map, varname, ti + 1, -1, domainnr)[1]
          time_cache_index = ti + 1
       end
       (debuglevel >= 4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+
+      time_cache_all_domains[:, domainnr] = time_cache
+      time_cache_index_all_domains[domainnr] = time_cache_index
    end
 
    """
@@ -356,9 +364,9 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
        This function assumes that the cache is up-to-date.
    """
    function weights(t)
-   	if t < time_cache[1] || t > time_cache[3]
-   		throw(ArgumentError("t outside cached time"))
-   	end
+      if t < time_cache[1] || t > time_cache[3]
+         throw(ArgumentError("t outside cached time"))
+      end
       if (t > time_cache[2])
          w = (t - time_cache[2]) / (time_cache[3] - time_cache[2])
          return (0.0, (1.0 - w), w)
@@ -370,8 +378,9 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    # flow in x direction (for now has to be called u)
    function f(x, y, z, t)
       ind = find_index(interp, x, y)
+      if ind[1] == -1; return dumval; end
       if cache_direction == :forwards
-         update_cache_forwards(t)
+         update_cache_forwards(t, ind[1])
       elseif cache_direction == :backwards
          update_cache_backwards(t)
       end

@@ -124,8 +124,8 @@ if lowercase(d["current_filetype"]) == "cmems"
     cmems_u = CmemsData(current_dir, d["current_x_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
     cmems_v = CmemsData(current_dir, d["current_y_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
     t0 = d["reftime"]
-    u = initialize_interpolation(cmems_u, d["current_ucx_var"], t0, NaN)  # water velocity x-dir
-    v = initialize_interpolation(cmems_v, d["current_ucy_var"], t0, NaN)  # water velocity y-dir
+    u = initialize_interpolation(cmems_u, d["current_ucx_var"], t0, 0.0)  # water velocity x-dir
+    v = initialize_interpolation(cmems_v, d["current_ucy_var"], t0, 0.0)  # water velocity y-dir
 elseif lowercase(d["current_filetype"]) == "delft3d-fm"
     dflow_map = load_nc_info(current_dir, d["current_filename"])
     const interp = load_dflow_grid(dflow_map, 50, true)
@@ -316,8 +316,10 @@ function f!(ds, s, t, i, d)
     # usJ, vsJ = uv_sJ(wh(x,y,z,t),wp(x,y,z,t),wd(x,y,z,t))
     # (up,vp) = water_stokes_wind(ua,va, uw,vw,usJ,vsJ)
     # 5: Flow plus flow plus a factor times wind (a second flow field to allow for e.g. CMEMS + GTSM flow)
-    up = uw + ua * d["leeway_coeff"] + u2(x, y, z, t) 
-    vp = vw + va * d["leeway_coeff"] + v2(x, y, z, t) 
+    uw += u2(x, y, z, t)
+    vw += v2(x, y, z, t) 
+    up = uw + ua * d["leeway_coeff"]
+    vp = vw + va * d["leeway_coeff"]
 
     # Calculate and add turbulent diffusivity, using Pr=1
     # Estimate the Eddy viscosity and its derivates, using a Smagorinsky model
@@ -352,38 +354,39 @@ if d["write_maps"] && haskey(d, "npartpersource") && d["npartpersource"] > 1
     using NetCDF
     import Statistics
     using Statistics
-    
-    sources = d["ids"]
     nsources = d["nsources"]
     npartpersource = d["npartpersource"]
 
     fullfile = joinpath(d["write_maps_dir"], d["write_maps_filename"])
     file = NetCDF.open(fullfile)
-    variables = collect(keys(file.vars))
-    ntimes = length(file["time"])
+    gatts = file.gatts
+    time = ncread(fullfile, "time")
+    ntimes = length(time)
     time_atts = file["time"].atts
     finalize(file)
     
-    # add variable "source" (= source of each particle) with dimension [particles] 
-    source_atts = Dict("long_name" => "source id", "units" => "1", "missing_value" => 9999)
-    nccreate(fullfile, "source", "particles", atts = source_atts)
-    ncwrite(sources, fullfile, "source") 
+    fullfile_mean = joinpath(d["write_maps_dir"], "source-averaged_" * d["write_maps_filename"])
+    if isfile(fullfile_mean)
+        println("Source-averaged output file exists. Removing file $(fullfile_mean)")
+        rm(fullfile_mean)
+    end
+    nc = NetCDF.create(fullfile_mean, gatts = gatts, mode = NC_NETCDF4)
 
-    # write source-averaged data to file - e.g. "lon_mean " with dimensions [time,sources]
-    for vari = 1:length(variables)
-        varname = variables[vari]
+    for varname in keys(file.vars)
         dimnames = [file[varname].dim[i].name for i = 1:file[varname].ndim]
         if "time" in dimnames && "particles" in dimnames
-            varname_mean = string(varname,"_mean")
             data = ncread(fullfile, varname)
-            nccreate(fullfile, varname_mean, "time", time_atts, "sources", collect(1:1:nsources))
+            nccreate(fullfile_mean, varname, "time", time, "sources", collect(1:1:nsources))
             data_mean = zeros(ntimes, nsources)
             for srci = 1:nsources
                 ind1 = (srci - 1) * npartpersource + 1
                 ind2 = srci * npartpersource
                 data_mean[:,srci] = mean(data[:,ind1:ind2], dims = 2) #todo: take nanmean or skipmissing to avoid mean([1 2 NaN/missing 5]) to become NaN
             end
-            ncwrite(data_mean, fullfile, varname_mean)
+            ncwrite(data_mean, fullfile_mean, varname)
+            ncputatt(fullfile_mean, varname, file[varname].atts)
         end
     end
+    ncputatt(fullfile_mean, "time", time_atts)
+    finalize(fullfile_mean)
 end

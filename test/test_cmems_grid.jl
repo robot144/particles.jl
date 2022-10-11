@@ -65,7 +65,9 @@ end
 
 function test3()
    #init
-   cmems_datas = CmemsData("../test_data", "cmems_map_u_*_time*.nc"; lon = "x", lat = "y")
+   cmems_datas = CmemsData("../test_data", r"cmems_map_u_.+_time..nc"; lon = "x", lat = "y") # Regex
+   @test length(cmems_datas) == 2
+   cmems_datas = CmemsData("../test_data", "cmems_map_u_*_time*.nc"; lon = "x", lat = "y") # Glob
    @test length(cmems_datas) == 2
    cmems_data = cmems_datas[1]
 

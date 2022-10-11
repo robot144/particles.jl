@@ -15,7 +15,7 @@
 using NetCDF
 using Dates
 
-const debuglevel=1 #0-nothing, larger more output
+debuglevel=1 #0-nothing, larger more output
 
 """
 Using the EraData struct the file-handling becomes object-oriented.

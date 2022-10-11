@@ -16,7 +16,7 @@
 # function weights(xyt::CartesianXYTGrid,t)
 
 
-const debuglevel=1
+debuglevel=1
 
 if !@isdefined(CartesianGrid)
 mutable struct CartesianGrid <: SpaceGrid
