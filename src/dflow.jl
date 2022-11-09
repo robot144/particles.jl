@@ -271,7 +271,7 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          if !isnothing(run_ind_needed)
             dflow_map_ind_needed = ((run_ind_needed-1)*no_domains+1) : (run_ind_needed*no_domains)
             if dflow_map_ind_needed != dflow_map_ind # update of dflow_map needed (e.g. using run02/run_0000_map.nc instead of run01/run_0000_map.nc)
-               (debuglevel >= 1) && println("t = $(t) - Switching to dflowfm_map based on: ../$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[1]].name)[end-2:end]...))")
+               (debuglevel >= 1) && println("t = $(t) - Update '$(varname)'-data using: ../$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[domainnr]].name)[end-2:end]...))")
                dflow_map_ind = dflow_map_ind_needed
                dflow_map = dflow_map_all[dflow_map_ind]
                times_cache = times_cache_per_run[run_ind_needed]

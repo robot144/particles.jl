@@ -217,22 +217,21 @@ function initialize_interpolation(data, varname::String, reftime::DateTime, dumm
         return xyt
     end
 
-    data_ind = 1
-    xyt = get_xyt(data, data_ind)
-    
+    xyts = Array{Any,1}(undef, length(data))
     function update_xyt(x,y,t)
         intime = [(t >= times[1]) && (t <= times[end]) for times in times_per_file]
         inspace = [in_bbox(data[i].grid,x,y) for i in 1:length(data)]
         data_ind_needed = findlast((intime .* inspace))
         if isnothing(data_ind_needed)
             data_ind_needed = 1 # just continue with first map and get an error-message during the interpolation
-        elseif data_ind_needed == data_ind
-            (debuglevel >= 2) && println("cache is okay")
-        else # update of xyt needed
-            data_ind = data_ind_needed
-            (debuglevel >= 1) && println("t = $(t) - Switching to file: ../$(joinpath(splitpath(data[data_ind].file.name)[end-2:end]...))")
-            get_xyt(data, data_ind)
         end
+        if isassigned(xyts, data_ind_needed)
+            (debuglevel >= 2) && println("data is already cached")
+        else # load additional xyt
+            (debuglevel >= 1) && println("t = $(t) - Reading data from file: ../$(joinpath(splitpath(data[data_ind_needed].file.name)[end-2:end]...))")
+            xyts[data_ind_needed] = get_xyt(data, data_ind_needed)
+        end
+        xyt = xyts[data_ind_needed]
         return xyt
     end
 

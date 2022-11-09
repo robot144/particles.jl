@@ -146,6 +146,9 @@ if haskey(d, "current2_filetype")
         u2 = initialize_interpolation(dflow_map, interp, d["current2_ucx_var"], d["reftime"], 0.0, d["time_direction"]);
         v2 = initialize_interpolation(dflow_map, interp, d["current2_ucy_var"], d["reftime"], 0.0, d["time_direction"]);
         println("A second flow-field will be used from: $(d["current2_filename"])")
+    elseif lowercase(d["current2_filetype"]) == "zero"
+        u2 = zero_fun
+        v2 = zero_fun
     else
         error("Invalid current2_filetype (only 'delft3d-fm' is supported): $(d["current2_filetype"])")
     end
@@ -177,9 +180,6 @@ end
 if !haskey(d,"wind_y_var")
    d["wind_y_var"] = "y"
 end
-if !haskey(d,"wind_x_wrap")
-   d["wind_x_wrap"] = false
-end
 
 # create u_wind and v_wind
 if lowercase(d["wind_filetype"]) == "gfs"
@@ -187,6 +187,14 @@ if lowercase(d["wind_filetype"]) == "gfs"
     gfs_u = GFSData(d["wind_dir"], d["wind_x_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
     gfs_v = GFSData(d["wind_dir"], d["wind_y_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
     t0 = d["reftime"]
+    if !haskey(d,"wind_x_wrap") 
+        if all(d["x"] .>= -180.0 * d["x"] .<= 180.0) && all(d["y"] .>= -90.0 * d["y"] .<= 90.0) && all(gfs_u.grid.xnodes .>= 0.0 * gfs_u.grid.xnodes .<= 360.0)
+            @warn "The particles seem to be in spherical coordinates (lon: [-180 180]), but the provided GFS data is in lon: [0 360]. wind_x_wrap is set to 'true'"
+            d["wind_x_wrap"] = true  # shift longitudes from [0 360] to [-180 180]
+        else
+            d["wind_x_wrap"] = false
+        end
+    end
     u_wind = initialize_interpolation(gfs_u, "10u", t0, NaN, wrap = d["wind_x_wrap"])  # wind velocity x-dir
     v_wind = initialize_interpolation(gfs_v, "10v", t0, NaN, wrap = d["wind_x_wrap"])  # wind velocity y-dir
 elseif lowercase(d["wind_filetype"]) == "delft3d-fm"
@@ -296,8 +304,14 @@ function f!(ds, s, t, i, d)
     va = 0
     uw = u(x, y, z, t)
     vw = v(x, y, z, t)
-    ua = u_wind(x, y, z, t)
-    va = v_wind(x, y, z, t)
+    uw += u2(x, y, z, t)
+    vw += v2(x, y, z, t) 
+    if uw != 0
+        ua = u_wind(x, y, z, t)
+        va = v_wind(x, y, z, t)
+        up = uw + ua * d["leeway_coeff"]
+        vp = vw + va * d["leeway_coeff"]
+    end
 
     # Various models:
     # 0: Use drifer data
@@ -316,10 +330,6 @@ function f!(ds, s, t, i, d)
     # usJ, vsJ = uv_sJ(wh(x,y,z,t),wp(x,y,z,t),wd(x,y,z,t))
     # (up,vp) = water_stokes_wind(ua,va, uw,vw,usJ,vsJ)
     # 5: Flow plus flow plus a factor times wind (a second flow field to allow for e.g. CMEMS + GTSM flow)
-    uw += u2(x, y, z, t)
-    vw += v2(x, y, z, t) 
-    up = uw + ua * d["leeway_coeff"]
-    vp = vw + va * d["leeway_coeff"]
 
     # Calculate and add turbulent diffusivity, using Pr=1
     # Estimate the Eddy viscosity and its derivates, using a Smagorinsky model
