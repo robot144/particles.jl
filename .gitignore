@@ -5,3 +5,4 @@ deps/deps.jl
 *.png
 *.mem
 *.nc
+Manifest.toml
