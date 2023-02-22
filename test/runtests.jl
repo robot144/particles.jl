@@ -19,11 +19,15 @@ end
        include("test_wms_client.jl")
     end
     
-    @testset "Read and interpolate map-files from Delft3D-FM also called Dflow" begin
+    @testset "Read and interpolate map-files from Delft3D-FM also called Dflow (operational version)" begin
        include("test_dflow.jl")
     end
     
-    @testset "Read and interpolate ERA5 files " begin
+    @testset "Read and interpolate map-files from Delft3D-FM (draft version including 3D flow)" begin
+      include("test_delft3dfm.jl")
+   end
+
+   @testset "Read and interpolate ERA5 files " begin
        include("test_era5.jl")
     end
     
