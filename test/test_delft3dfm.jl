@@ -6,7 +6,7 @@ using Dates
 # test
 #
 
-function test1()
+function test1() #2D maps of a simple estuary. This model has only two domains
    #init
    dflow_map=load_nc_info("../test_data",r"estuary_...._map.nc")
    @test length(dflow_map)==2
@@ -53,7 +53,7 @@ end
 
 # this test needs files that do not fit in github
 # only run if the files exist
-function test2()
+function test2() #2D maps from Delft3D-FM. This model has multiple domains
    #init
    dflow_map=load_nc_info("../test_data",r"DCSM-FM_0_5nm_...._map.nc")
    @test length(dflow_map)==20
@@ -82,6 +82,50 @@ function test2()
    end
 end
 
+function test3() ## maps of a rectangular lock-exchange case in 3D. This model has only one domain
+   #init
+   dflow_map=load_nc_info("../test_data",r"locxxz_map.nc")
+   @test length(dflow_map)==1
+   @test size(dflow_map[1].vars["mesh2d_s1"])==(400,21)
+   interp=load_dflow_grid(dflow_map,50,false)
+   @test length(interp.grids)==1
+   
+   #interpolate a field to a regular grid
+   sealevel=load_nc_map_slice(dflow_map,"mesh2d_s1",10)
+   @test length(sealevel)==1
+   @test length(sealevel[1])==400
+   @test sealevel[1][12]==0.05523625586165582
+
+   # u_velocity=load_nc_map_slice(dflow_map,"ucx",10)
+   # @test length(u_velocity)==2
+   # @test length(u_velocity[1])==103
+   # @test length(u_velocity[2])==103
+   # @test u_velocity[1][103]==-0.2017744781187035
+
+   # xpoints=collect(range(0.,stop=100000.,length=300))
+   # ypoints=collect(range(0.,stop=500.,length=100))
+   # sealevel_interp=interpolate(interp,xpoints,ypoints,sealevel)
+   # @test size(sealevel_interp)==(300,100)
+   # @test sealevel_interp[23,48]==-0.17045316506644842
+
+   # u_velocity_interp=interpolate(interp,xpoints,ypoints,u_velocity)
+   # @test size(u_velocity_interp)==(300,100)
+   # #heatmap(xpoints,ypoints,u_velocity_interp')
+   # # interpolate for one point only
+   # ind=find_index(interp,10000.0,200.0)
+   # @test ind==[2 84]
+   # ux=apply_index(ind,u_velocity,-9999.)
+   # @test ux==-0.14349077430813084
+   
+   # # u,v interpolation functions
+   # t0=get_reftime(dflow_map)
+   # @test t0==DateTime(1991,1,1)
+   # u1,v1=initialize_interpolation(dflow_map,interp,t0)
+   # u_value=u1(100.0,100.0,0.0,0.0)
+   # #@test u_value==-0.9088566953087289
+   # @test u_value==-0.0 #TODO Check later. Is this really true?
+end
+
 test1()
 
 #test2 needs large input files that are not present in the repository.
@@ -89,3 +133,5 @@ test1()
 if isfile(joinpath("../test_data","DCSM-FM_0_5nm_0000_map.nc"))
    test2()
 end
+
+test3()
