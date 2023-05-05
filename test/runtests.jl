@@ -27,6 +27,10 @@ end
       include("test_delft3dfm.jl")
    end
 
+   @testset "Convert delft3d_fm output to zarr" begin
+      include("test_delft3dfm_to_zarr.jl")
+   end
+
    @testset "Read and interpolate ERA5 files " begin
        include("test_era5.jl")
     end

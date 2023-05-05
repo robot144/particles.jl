@@ -6,8 +6,10 @@ using TOML
 using NetCDF
 using Zarr
 using Dates
-include(joinpath(@__DIR__,"unstructured_grid.jl")) #bit ad-hoc
-include(joinpath(@__DIR__,"dflow.jl")) #bit ad-hoc
+if !@isdefined(Grid) #TODO: This is awkward. Should move code to a package 
+    include(joinpath(@__DIR__,"unstructured_grid.jl"))
+    include(joinpath(@__DIR__,"dflow.jl"))
+end
 
 debuglevel=1
 
@@ -68,12 +70,17 @@ defaults = Dict(
         "add_offset" => 0.0,
         "data_type" => "Float64",
         "_FillValue" => -9999.0),
-    "z_center_3d" => Dict(
+    "z_center_3d" => Dict( #z at center (depth limited to around 3000m)
+        "scale_factor" => 0.1, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => -9999.0),
+    "z_iface_3d" => Dict( #z at interface (depth limited to around 3000m)
         "scale_factor" => 0.1, 
         "add_offset" => 0.0,
         "data_type" => "Int16",
         "_FillValue" => -9999.0)
-     )
+         )
 
 # variables appear under different names in the delft3d-fm output files. Here we list the options
 aliases=Dict{String,Vector{String}}(
@@ -86,6 +93,7 @@ aliases=Dict{String,Vector{String}}(
     "y_center"    => ["FlowElem_ycc","mesh2d_face_y"],
     "z_center"    => ["mesh2d_layer_z","LayCoord_cc"], #1d
     "z_center_3d" => ["mesh2d_flowelem_zcc"], #3d
+    "z_iface_3d"  => ["mesh2d_flowelem_zw"], #3d
     "x_node"      => ["mesh2d_node_x","NetNode_x"],
     "y_node"     => ["mesh2d_node_y","NetNode_y"],
     "time"       => ["time"]
@@ -220,7 +228,7 @@ function default_config(mapfiles::Vector{String})
     globals["ny"]=ny
     config["global"]=globals
     varnames=info["varnames"]
-    for varname in try_vars
+    for varname in varnames
         varconfig=Dict{String,Any}(
             "scale_factor" => defaults[varname]["scale_factor"],
             "add_offset"   => defaults[varname]["add_offset"],
@@ -336,7 +344,7 @@ function copy_var(input::NcFile,output,varname,config,stop_on_missing=true)
     println("varname= $(varname)")
     println("in_dummy = $(in_dummy)")
     println("out_dummy= $(out_dummy)")
-    #create output ar
+    #create output var
     out_var = zcreate(out_type, output, varname,in_size...,attrs=out_atts, chunks = out_chunk_size)
     println("in_size= $(in_size)")
     println("out_size= $(size(out_var))")
@@ -653,9 +661,13 @@ function main(args)
             interp_var(map,interp,output,varname,xpoints,ypoints,config)
         end
         #copy dimensions and coordinates
-        nc_z=get_varname("z_center_3d",firstmap) #try 3d z coords
-        if !(nc_z==nothing)
+        nc_zc=get_varname("z_center_3d",firstmap) #try 3d z coords
+        if !(nc_zc==nothing)
             interp_var(map,interp,output,"z_center_3d",xpoints,ypoints,config)
+        end
+        nc_zw=get_varname("z_iface_3d",firstmap) #try 3d z coords
+        if !(nc_zw==nothing)
+            interp_var(map,interp,output,"z_iface_3d",xpoints,ypoints,config)
         end
         copy_var(firstmap,output,"z_center",config,false) #try 1d z coords
         copy_var(firstmap,output,"time",config)
@@ -690,9 +702,16 @@ end
 #
 # main 
 #
+
+# some defaults for manual tesing
 mapfiles=["test_data/estuary_0000_map.nc", "test_data/estuary_0000_map.nc"]
 #mapfiles=["test_data/locxxz_map.nc"]
-configfile=["config_map_interp.toml"]
-main(ARGS)
+configfile=["config_map_interp.toml"] #TODO these names are not used
+
+# do nothing when called as module
+if abspath(PROGRAM_FILE) == @__FILE__
+    println("ARGS = $(ARGS)")
+    main(ARGS)
+end
 
 nothing
