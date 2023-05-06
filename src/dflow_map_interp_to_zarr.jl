@@ -17,7 +17,8 @@ debuglevel=1
 # defaults
 #
 # these variables are added to the configuration by default
-try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature"] 
+try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature",
+    "z_center_3d","z_iface_3d"] 
 # default settings per variable
 defaults = Dict(
     "waterlevel" => Dict(
@@ -661,14 +662,15 @@ function main(args)
             interp_var(map,interp,output,varname,xpoints,ypoints,config)
         end
         #copy dimensions and coordinates
-        nc_zc=get_varname("z_center_3d",firstmap) #try 3d z coords
-        if !(nc_zc==nothing)
-            interp_var(map,interp,output,"z_center_3d",xpoints,ypoints,config)
-        end
-        nc_zw=get_varname("z_iface_3d",firstmap) #try 3d z coords
-        if !(nc_zw==nothing)
-            interp_var(map,interp,output,"z_iface_3d",xpoints,ypoints,config)
-        end
+        # make additional fullgrid z coordinates options in try_vars above
+        # nc_zc=get_varname("z_center_3d",firstmap) #try 3d z coords
+        # if !(nc_zc==nothing)
+        #     interp_var(map,interp,output,"z_center_3d",xpoints,ypoints,config)
+        # end
+        # nc_zw=get_varname("z_iface_3d",firstmap) #try 3d z coords
+        # if !(nc_zw==nothing)
+        #     interp_var(map,interp,output,"z_iface_3d",xpoints,ypoints,config)
+        # end
         copy_var(firstmap,output,"z_center",config,false) #try 1d z coords
         copy_var(firstmap,output,"time",config)
         # create consolidate_metadata for faster internet access

@@ -3,6 +3,8 @@ module Particles
 
 using NetCDF
 
+include("1d_interpolation.jl")  # support for vertical interpolation
+
 include("unstructured_grid.jl")  # support for fast indexing of unstructured grids
 
 include("grids.jl")  # generic grid structure
@@ -22,6 +24,9 @@ include("cmems_grid.jl")  # support for 2d grids in NetCDF from CMEMS
 include("particles_core.jl")  # support for background images downloaded with WMS
 
 include("cli.jl")  # support for starting from commandline with TOML or CSV
+
+# 1d_interpolation.jl
+export interpolation_linear_grid_edge_value_center
 
 # unstructured_grid.jl
 export Grid, Interpolator, add_grid!, interpolate, nodes_per_cell, winding_number, find_first_cell, get_values_by_cells!, find_first_cell, find_cells, create_node_tree!, dump, dump_subgrid, dump_array

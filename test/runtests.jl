@@ -7,6 +7,10 @@ end
 
 @testset "Particle tests" begin
     
+   @testset "1d interpolation" begin
+      include("test_1d_interpolation.jl")
+   end
+
     @testset "Grid indexing" begin
        include("test_unstructured_grid.jl")
     end
