@@ -5,4 +5,5 @@ deps/deps.jl
 *.png
 *.mem
 *.nc
+*.zarr
 Manifest.toml
