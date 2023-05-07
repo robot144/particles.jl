@@ -36,9 +36,17 @@ mutable struct CartesianGrid <: SpaceGrid
       bbox[3]=minimum(ynodes)
       bbox[4]=maximum(ynodes)
       x0=xnodes[1]
-      dx=xnodes[2]-xnodes[1]
+      if length(xnodes)>1
+         dx=xnodes[2]-xnodes[1]
+      else
+         dx=0.0
+      end
       y0=ynodes[1]
-      dy=ynodes[2]-ynodes[1]
+      if length(ynodes)>1
+         dy=ynodes[2]-ynodes[1]
+      else
+         dy=0.0
+      end
       return new(xnodes,ynodes,true,bbox,x0,dx,y0,dy)
    end
 end
@@ -74,8 +82,16 @@ Find index of point in the grid. The value is truncated downward.
 """
 function find_index(grid::CartesianGrid,xpoint,ypoint)
    if in_bbox(grid,xpoint,ypoint)
-      x_index=trunc(Int,((xpoint-grid.x0)/grid.dx))+1
-      y_index=trunc(Int,((ypoint-grid.y0)/grid.dy))+1
+      if length(grid.xnodes)>1
+         x_index=trunc(Int,((xpoint-grid.x0)/grid.dx))+1
+      else
+         x_index=1
+      end
+      if length(grid.ynodes)>1
+         y_index=trunc(Int,((ypoint-grid.y0)/grid.dy))+1
+      else
+         y_index=1
+      end
       return (x_index,y_index)
    else
       return (-1,-1)
@@ -88,14 +104,24 @@ Get indices and weights for linear interpolation.
 """
 function find_index_and_weights(grid::CartesianGrid,xpoint,ypoint)
    if in_bbox(grid,xpoint,ypoint)
-      x_rel=(xpoint-grid.x0)/grid.dx
-      y_rel=(ypoint-grid.y0)/grid.dy
+      dx=grid.dx
+      if abs(dx)<eps(1.0)
+         dx=eps(1.0)
+      end
+      dy=grid.dy
+      if abs(dy)<eps(1.0)
+         dy=eps(1.0)
+      end
+      x_rel=(xpoint-grid.x0)/dx
+      y_rel=(ypoint-grid.y0)/dy
       xi=trunc(Int,x_rel)+1
       yi=trunc(Int,y_rel)+1
       wx=x_rel-trunc(x_rel)
       wy=y_rel-trunc(y_rel)
-      xindices=(xi,xi+1,xi+1,xi)
-      yindices=(yi,yi,yi+1,yi+1)
+      nx=length(grid.xnodes)
+      ny=length(grid.ynodes)
+      xindices=(xi,min(nx,xi+1),min(xi+1),xi)
+      yindices=(yi,yi,min(ny,yi+1),min(ny,yi+1))
       weights=((1-wx)*(1-wy),wx*(1-wy),wx*wy,(1-wx)*wy)
       return (xindices,yindices,weights)
    else
@@ -314,7 +340,7 @@ function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::N
       end
    elseif xyt.ndims==3
       for ti=1:3
-         value+=w[ti]*interpolate(xyt.grid,xpoint,ypoint,dropdims(xyt.cache[ti],dims=3),NaN)
+         value+=w[ti]*interpolate(xyt.grid,xpoint,ypoint,xyt.cache[ti][:,:,1],NaN)
       end
    end
    if isnan(value)

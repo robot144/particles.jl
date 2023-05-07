@@ -17,6 +17,8 @@ include("dflow.jl")  # support for forcing data from Delft3D-FM
 
 include("era5.jl")  # support for ERA5 reanalysis data
 
+include("zarr_grid.jl")  # support for zarr data
+
 include("matroos_grid.jl")  # support for 2d grids in NetCDF from Matroos
 
 include("cmems_grid.jl")  # support for 2d grids in NetCDF from CMEMS
@@ -42,6 +44,9 @@ export load_nc_info, load_dflow_grid, load_nc_var, load_nc_map_slice, find_index
 
 # era5.jl
 export EraData, load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
+
+# zarr_grid.jl
+export ZarrData, varnames, load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
 
 # matroos_grid.jl
 export MatroosData # already_exported: load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation
