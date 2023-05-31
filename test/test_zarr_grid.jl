@@ -43,29 +43,29 @@ function test1()
 
     Zarr_data = ZarrData(".","locxxz_fullgrid_map.zarr")
 
-    p1=load_map_slice(Zarr_data,"waterlevel",1)
+    p1=load_map_slice(Zarr_data,"waterlevel",2)
     @test size(p1)==(344,1)
-    #@test p1[1,1]≈102574.4477038286
+    @test p1[1,1]≈-0.049
 
-    # t0=get_reftime(Zarr_data)
-    # @test t0==DateTime(2014,3,1)
+    t0=get_reftime(Zarr_data)
+    @test t0==DateTime(2001,1,1)
 
-    # times=get_times(Zarr_data,t0)
-    # @test times[1]≈0.0
-    # @test times[2]≈3600.0
+    times=get_times(Zarr_data,t0)
+    @test times[1]≈0.0
+    @test times[2]≈20.1
+    @test times[3]≈40.2 #rounding error in time array with long interval in seconds
 
-    # t2=as_DateTime(Zarr_data,t0,times[2])
-    # @test t2==DateTime("2014-03-01T01:00:00")
+    t2=as_DateTime(Zarr_data,t0,times[2])
+    @test t2==DateTime("2001-01-01T00:00:20.1")
 
-    # # u,v interpolation functions
-    # t0=get_reftime(Zarr_data)
-    # @test t0==DateTime(2014,3,1)
+    h=initialize_interpolation(Zarr_data,"waterlevel",t0)
+    h1=h(140.0,0.5,0.0,20.0) #x,y,z,t
+    @test h1≈-0.0248756218
+    h2=h(140.0,0.5,0.0,120.0)
+    @test h2≈ 0.0079666666
 
-    # p=initialize_interpolation(Zarr_data,"msl",t0)
-    # p1=p(20.0,75.0,0.0,0.0)
-    # @test p1≈101877.70372941876
-    # p2=p(20.0,75.0,0.0,3600.0)
-    # @test p2≈101926.02316008728
+    # TODO: 3d interpolation for z too
+    @test false
 end
 
 

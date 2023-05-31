@@ -1,0 +1,38 @@
+[global]
+islatlon = false
+nx = 345
+map_files = ["test_data/locxxz_map.nc"]
+zarr_file = "locxxz_map.zarr"
+ny = 1
+chunk_target_size = 1000000
+
+    [global.extent]
+    ymin = 0.0
+    ymax = 1.0
+    xmax = 300.00000000000006
+    xmin = 0.0
+
+[y_velocity]
+add_offset = 0.0
+data_type = "Int16"
+scale_factor = 0.001
+
+[salinity]
+add_offset = 0.0
+data_type = "Int16"
+scale_factor = 0.01
+
+[waterlevel]
+add_offset = 0.0
+data_type = "Int16"
+scale_factor = 0.001
+
+[x_velocity]
+add_offset = 0.0
+data_type = "Int16"
+scale_factor = 0.001
+
+[temperature]
+add_offset = 0.0
+data_type = "Int16"
+scale_factor = 0.01

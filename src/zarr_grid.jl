@@ -14,6 +14,7 @@
 
 using Zarr
 using Dates
+using CFTime
 
 debuglevel=1 #0-nothing, larger more output
 
@@ -43,7 +44,7 @@ end
     "time" in names
 """
 function varnames(data::ZarrData)
-   return keys(data.file.vars)
+   return keys(data.file.arrays)
 end
 
 """
@@ -91,28 +92,36 @@ relative to this t_ref. We use the midnight of the first time as t_ref.
 function get_reftime(data::ZarrData)
    time_relative=data.file.arrays["time"]
    units=time_relative.attrs["units"]
-   temp=split(units,"since")
-   temp2=split(temp[2],".")
-   println("ref date $(temp2[1])")
-   t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
-   dt_seconds=1.0
-   if startswith(temp[1],"seconds")
-      dt_seconds=1.0
-   elseif startswith(temp[1],"minutes")
-      dt_seconds=60.0
-   elseif startswith(temp[1],"hours")
-      dt_seconds=3600.0
-   elseif startswith(temp[1],"days")
-      dt_seconds=24.0*3600.0
-   else
-      error("Invalid time-step unit in zarr-file.")
-   end
-   seconds_per_day=24.0*3600.0
-   if debuglevel>2
-      println("$(dt_seconds), $(t0), $(seconds_per_day), $(time_relative[1])")
-   end
-   relative_days_in_seconds=div(dt_seconds*time_relative[1],seconds_per_day)*seconds_per_day
-   return t0 + Dates.Second(relative_days_in_seconds)
+   first_time=CFTime.timedecode([time_relative[1]],units)
+   # get year month day from first time
+   yr=year(first_time[1])
+   mo=month(first_time[1])
+   dy=day(first_time[1])
+   t_ref=DateTime(yr,mo,dy)
+   # start of day of first time in dataset
+   return t_ref
+   # temp=split(units,"since")
+   # temp2=split(temp[2],".")
+   # println("ref date $(temp2[1])")
+   # t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
+   # dt_seconds=1.0
+   # if startswith(temp[1],"seconds")
+   #    dt_seconds=1.0
+   # elseif startswith(temp[1],"minutes")
+   #    dt_seconds=60.0
+   # elseif startswith(temp[1],"hours")
+   #    dt_seconds=3600.0
+   # elseif startswith(temp[1],"days")
+   #    dt_seconds=24.0*3600.0
+   # else
+   #    error("Invalid time-step unit in zarr-file.")
+   # end
+   # seconds_per_day=24.0*3600.0
+   # if debuglevel>2
+   #    println("$(dt_seconds), $(t0), $(seconds_per_day), $(time_relative[1])")
+   # end
+   # relative_days_in_seconds=div(dt_seconds*time_relative[1],seconds_per_day)*seconds_per_day
+   # return t0 + Dates.Second(relative_days_in_seconds)
 end
 
 """
@@ -126,27 +135,30 @@ a nice default.
 function get_times(data::ZarrData,reftime::DateTime)
    time_relative=data.file.arrays["time"]
    units=time_relative.attrs["units"]
-   temp=split(units,"since")
-   temp2=split(temp[2],".")
-   println("ref date $(temp2[1])")
-   t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
-   dt_seconds=1.0
-   if startswith(temp[1],"seconds")
-      dt_seconds=1.0
-   elseif startswith(temp[1],"minutes")
-      dt_seconds=60.0
-   elseif startswith(temp[1],"hours")
-      dt_seconds=3600.0
-   elseif startswith(temp[1],"days")
-      dt_seconds=24.0*3600.0
-   else
-      error("Invalid time-step unit in map-file.")
-   end
-   times=[]
-   for ti=1:length(time_relative)
-      push!(times,(0.001*Dates.value(t0-reftime))+time_relative[ti]*dt_seconds)
-   end
-   return times
+   times=CFTime.timedecode(time_relative[:],units)
+   relative_times = [(t - reftime).value * 0.001 for t in times] # convert to seconds
+   return relative_times
+   # temp=split(units,"since")
+   # temp2=split(temp[2],".")
+   # println("ref date $(temp2[1])")
+   # t0=DateTime(strip(temp2[1]),"yyyy-mm-dd HH:MM:SS")
+   # dt_seconds=1.0
+   # if startswith(temp[1],"seconds")
+   #    dt_seconds=1.0
+   # elseif startswith(temp[1],"minutes")
+   #    dt_seconds=60.0
+   # elseif startswith(temp[1],"hours")
+   #    dt_seconds=3600.0
+   # elseif startswith(temp[1],"days")
+   #    dt_seconds=24.0*3600.0
+   # else
+   #    error("Invalid time-step unit in map-file.")
+   # end
+   # times=[]
+   # for ti=1:length(time_relative)
+   #    push!(times,(0.001*Dates.value(t0-reftime))+time_relative[ti]*dt_seconds)
+   # end
+   #return times
 end
 
 """
@@ -155,7 +167,7 @@ Convert a reftime (DateTime) and relative_time (Float64 with seconds) relative t
 Returns a DateTime type.
 """
 function as_DateTime(data::ZarrData,reftime::DateTime,relative_time)
-   reftime+Float64(relative_time)*Dates.Second(1)
+   return reftime+round(Int64,relative_time*1000)*Dates.Millisecond(1)
 end
 
 """
@@ -164,8 +176,8 @@ Create an interpolation function p(x,y,z,t)
 """
 function initialize_interpolation(data::ZarrData,varname::String,reftime::DateTime,dummy=0.0,cache_direction::Symbol=:forwards)
    times=get_times(data,reftime)
-   values=data.file.vars[varname] #TODO more checks
-   missing_value=values.attrs["missing_value"]
+   values=data.file.arrays[varname] #TODO more checks
+   missing_value=values.attrs["_FillValue"]
    scaling=values.attrs["scale_factor"]
    offset=values.attrs["add_offset"]
    xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset,cache_direction)
