@@ -83,7 +83,11 @@ function get_bbox(interp::Interpolator)
    return bbox
 end
 
-function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
+"""
+function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array,dumval=0.0)
+   interpolation for a set of points. The indices of the points are cached if they stay the say between calls
+"""
+function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array,dumval=0)
    #check for mutiple or single domain
    if(typeof(invalues).parameters[1] <: Number)
       #input as single domain
@@ -91,6 +95,8 @@ function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
          error("Input values were given for single domain to multi-domain interpolator")
       end
       values=[invalues]
+   else
+      values=invalues
    end
    #compute hash and see if we can reuse interpolation weights
    outx_hash=hash(xpoints)
@@ -114,8 +120,9 @@ function interpolate(interp::Interpolator,xpoints,ypoints,invalues::Array)
       cached_indices=interp.cached_indices #retrieve from cache
    end
    outvalues=zeros(Float64,size(cached_indices[1]))
+   outvalues.=dumval
    for i=1:length(cached_indices) #loop over grids
-      get_values_by_cells!(outvalues,cached_indices[i],invalues[i])
+      get_values_by_cells!(outvalues,cached_indices[i],values[i])
    end
    return outvalues
 end

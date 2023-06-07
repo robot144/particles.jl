@@ -408,6 +408,11 @@ function copy_var(input::NcFile,output,varname,config,stop_on_missing=true)
     end
 end
 
+"""
+function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy)
+Convert array from float types to integer type
+Values in teh input that are NaN or equal to in_dummy are set to out_dummy 
+"""
 function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy)
    in_dummies=in_values.==in_dummy
    in_nans=isnan.(in_values)
@@ -421,11 +426,10 @@ function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy
    out_temp=round.(out_type,temp)
    out_temp[in_dummies].=out_dummy
    out_temp[in_nans].=out_dummy
-   #out_temp[in_values.==0.0].=out_dummy #TODO interpolation now delivers zeros outside grid
    return out_temp
 end
 
-function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config)
+function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config,dumval=NaN)
     println("interpolating variable name=$(varname)")
     globals=config["global"]
     nx=length(xpoints)
@@ -474,7 +478,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             for it=1:nt
                 print("|")
                 in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
-                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
                 out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                 var[:,:,it]=out_temp[:,:]
             end
@@ -484,7 +488,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             print("time independent")
             it=0
             in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it)
-            in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+            in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
             out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
             var=out_temp
         end
@@ -503,7 +507,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 for ilayer in 1:nz
                     print(".")
                     in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
-                    in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                    in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
                     out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                     var[:,:,ilayer,it]=out_temp[:,:]
                 end
@@ -521,7 +525,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 print(".")
                 it=0
                 in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
-                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated)
+                in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
                 out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                 var[:,:,ilayer]=out_temp[:,:]
             end
