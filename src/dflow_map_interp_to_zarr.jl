@@ -88,7 +88,7 @@ aliases=Dict{String,Vector{String}}(
     "waterlevel"  => ["s1", "mesh2d_s1"],
     "x_velocity"  => ["ucx", "mesh2d_ucx"],
     "y_velocity"  => ["ucy", "mesh2d_ucy"],
-    "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one)?
+    "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one not L)?
     "temperature" => ["tem1","mesh2d_tem1"], 
     "x_center"    => ["FlowElem_xcc","mesh2d_face_x"],
     "y_center"    => ["FlowElem_ycc","mesh2d_face_y"],
@@ -99,7 +99,8 @@ aliases=Dict{String,Vector{String}}(
     "y_node"     => ["mesh2d_node_y","NetNode_y"],
     "time"       => ["time"]
 )
-#znames_iface=["mesh2d_layer_z"]
+# valriable names that have a vertical position at the interface instead of the center. The center is the defauls
+znames_iface=["z_iface_3d"]
 
 chunk_target_size=1000000
 #
@@ -473,6 +474,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
     if is2d
         if hastime
             varatts["_ARRAY_DIMENSIONS"]=["time","y","x"]
+            varatts["coordinates"]="time y_center x_center"
             var = zcreate(out_type, output, varname,(nx,ny,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,1))
             print("times $(nt):")
             for it=1:nt
@@ -484,6 +486,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             end
         else
             varatts["_ARRAY_DIMENSIONS"]=["y","x"]
+            varatts["coordinates"]="y_center x_center"
             var = zcreate(out_type, output, varname,(nx,ny)...,attrs=varatts,chunks=(x_chunksize,y_chunksize))
             print("time independent")
             it=0
@@ -496,6 +499,11 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
         if hastime
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["time","z","y","x"]
+            varatts["coordinates"]="time z_center y_center x_center"
+            if varname in znames_iface
+                varatts["_ARRAY_DIMENSIONS"]=["time","z_iface","y","x"]
+                varatts["coordinates"]="time z_iface_y_center x_center"
+            end
             if (nx*ny*nz)<chunk_target_size
                 var = zcreate(out_type, output, varname,(nx,ny,nz,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,nz,1))
             else
@@ -515,6 +523,11 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
         else
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["z","y","x"]
+            varatts["coordinates"]="z_center y_center x_center"
+            if varname in znames_iface
+                varatts["_ARRAY_DIMENSIONS"]=["z_iface","y","x"]
+                varatts["coordinates"]="z_iface y_center x_center"
+            end
             if (nx*ny*nz)<chunk_target_size
                 var = zcreate(out_type, output, varname,(nx,ny,nz)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,nz,1))
             else
