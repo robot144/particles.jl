@@ -24,7 +24,7 @@ Using the CmemsData struct the file-handling becomes object-oriented.
 mutable struct CmemsData
     file::NcFile
     #derived data
-    grid::CartesianGrid
+    grid::CartesianXYGrid
     """
     Constructor
     cmems_data  = CmemsData(".", "my_cmems_file.nc")
@@ -45,7 +45,7 @@ mutable struct CmemsData
             file = NetCDF.open(filename)
             x = collect(file.vars[lon])
             y = collect(file.vars[lat])
-            grid = CartesianGrid(x, y, true)
+            grid = CartesianXYGrid(x, y, true)
             push!(map, new(file, grid))
         end
         length(map) != 1 || (map = map[1]) # backward compatibility
@@ -59,7 +59,7 @@ Using the GFSData struct the file-handling becomes object-oriented.
 mutable struct GFSData
     file::NcFile
     #derived data
-    grid::CartesianGrid
+    grid::CartesianXYGrid
     """
     Constructor
     gfs_data  = GFSData(".","my_gfs_file.nc")
@@ -80,7 +80,7 @@ mutable struct GFSData
             file = NetCDF.open(filename)
             x = collect(file.vars[lon])
             y = collect(file.vars[lat])
-            grid = CartesianGrid(x, y, true)
+            grid = CartesianXYGrid(x, y, true)
             push!(map, new(file, grid))
         end
         length(map) != 1 || (map = map[1]) # backward compatibility

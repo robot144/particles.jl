@@ -24,7 +24,7 @@ Using the MatroosData struct the file-handling becomes object-oriented.
 mutable struct MatroosData
    file::NcFile
    #derived data
-   grid::CartesianGrid
+   grid::CartesianXYGrid
    """
    Constructor
    matroos_data = MatroosData(".","my_matroos_file.nc")
@@ -41,7 +41,7 @@ mutable struct MatroosData
       else
          error("No variable y in NetCDF files.")
       end
-      grid=CartesianGrid(x,y,true)
+      grid=CartesianXYGrid(x,y,true)
       return new(file,grid)
    end
 end

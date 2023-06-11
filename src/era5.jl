@@ -23,7 +23,7 @@ Using the EraData struct the file-handling becomes object-oriented.
 mutable struct EraData
    file::NcFile
    #derived data
-   grid::CartesianGrid
+   grid::CartesianXYGrid
    """
    Constructor
    era_data = EraData(".","my_era_file.nc")
@@ -32,7 +32,7 @@ mutable struct EraData
       file=NetCDF.open(joinpath(path,filename))
       x=collect(file.vars["longitude"])
       y=collect(file.vars["latitude"])
-      grid=CartesianGrid(x,y,true)
+      grid=CartesianXYGrid(x,y,true)
       return new(file,grid)
    end
 end

@@ -19,7 +19,7 @@
 debuglevel=1
 
 if !@isdefined(CartesianGrid)
-mutable struct CartesianGrid <: SpaceGrid
+mutable struct CartesianXYGrid <: SpaceGrid
    xnodes::Array{Float64,1}     #x-coordinates of nodes
    ynodes::Array{Float64,1}     #y-coordinates of nodes
    regular::Bool # assume true for now
@@ -29,7 +29,7 @@ mutable struct CartesianGrid <: SpaceGrid
    dx::Float64
    y0::Float64
    dy::Float64
-   function CartesianGrid(xnodes::Array,ynodes::Array,spherical::Bool=true)
+   function CartesianXYGrid(xnodes::Array,ynodes::Array,spherical::Bool=true)
       bbox=zeros(Float64,4)
       bbox[1]=minimum(xnodes)
       bbox[2]=maximum(xnodes)
@@ -59,7 +59,7 @@ end #ifdef
    dump(grid)
 Print a summary of the grid to screen.
 """
-function dump(grid::CartesianGrid)
+function dump(grid::CartesianXYGrid)
    println("bbox= $(grid.bbox)")
    print("xnodes=")
    display(grid.xnodes')
@@ -70,7 +70,7 @@ end
 """
    boolean_inbox=in_bbox(grid,xpoint,ypoint)
 """
-function in_bbox(grid::CartesianGrid,xpoint,ypoint)
+function in_bbox(grid::CartesianXYGrid,xpoint,ypoint)
    result=( (xpoint>=grid.bbox[1]) && (xpoint<=grid.bbox[2])
 	 && (ypoint>=grid.bbox[3]) && (ypoint<=grid.bbox[4]) )
    return result
@@ -80,7 +80,7 @@ end
  m,n = find_index(grid,xpoint,ypoint)
 Find index of point in the grid. The value is truncated downward.
 """
-function find_index(grid::CartesianGrid,xpoint,ypoint)
+function find_index(grid::CartesianXYGrid,xpoint,ypoint)
    if in_bbox(grid,xpoint,ypoint)
       if length(grid.xnodes)>1
          x_index=trunc(Int,((xpoint-grid.x0)/grid.dx))+1
@@ -102,7 +102,7 @@ end
 xindices,yindices,weights = find_index_and_weights(grid,xpoint,ypoint)
 Get indices and weights for linear interpolation.
 """
-function find_index_and_weights(grid::CartesianGrid,xpoint,ypoint)
+function find_index_and_weights(grid::CartesianXYGrid,xpoint,ypoint)
    if in_bbox(grid,xpoint,ypoint)
       dx=grid.dx
       if abs(dx)<eps(1.0)
@@ -147,7 +147,7 @@ end
 
 """
 """
-function interpolate(grid::CartesianGrid,xpoint::Number,ypoint::Number,values,dummy=0.0)
+function interpolate(grid::CartesianXYGrid,xpoint::Number,ypoint::Number,values,dummy=0.0)
    xindices,yindices,weights = find_index_and_weights(grid,xpoint,ypoint)
    return apply_index_and_weights(xindices,yindices,weights,values,dummy)
 end
@@ -159,7 +159,7 @@ end
 
 #if !@isdefined(CartesianXYTGrid)
 mutable struct CartesianXYTGrid <: SpaceTimeGrid
-   grid::CartesianGrid  #grids for  domain
+   grid::CartesianXYGrid  #grids for  domain
    times::AbstractVector
    values::AbstractArray  #source array for interpolation
    name::String
@@ -178,7 +178,7 @@ mutable struct CartesianXYTGrid <: SpaceTimeGrid
    xyt=CartesianXYTGrid(grid,times,values,"pressure",missing_value,scaling=1.0,offset=0.0)
    Create an xyt item for space-time interpolation.
    """
-   function CartesianXYTGrid(grid::CartesianGrid,times::AbstractVector,values::AbstractArray,name::String,missing_value::Number,scaling=1.0,offset=0.0,cache_direction::Symbol=:forwards)
+   function CartesianXYTGrid(grid::CartesianXYGrid,times::AbstractVector,values::AbstractArray,name::String,missing_value::Number,scaling=1.0,offset=0.0,cache_direction::Symbol=:forwards)
       (debuglevel>3) && println("initialize CartesianXYTGrid.")
       #keep 3 times in memmory
       time_cache=zeros(3)

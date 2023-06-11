@@ -7,10 +7,10 @@ using NetCDF
 # low-level tests
 #
 
-function test1() #CartesianGrid 
+function test1() #CartesianXYGrid 
    xgrid=collect(range(0.0,1.0,step=0.1))
    ygrid=collect(range(0.0,2.0,step=0.1))
-   grid=CartesianGrid(xgrid,ygrid)
+   grid=CartesianXYGrid(xgrid,ygrid)
    @test grid.bbox==[0.0,1.0,0.0,2.0]
    @test length(grid.xnodes)==11
    @test length(grid.ynodes)==21
@@ -50,7 +50,7 @@ end
 function test2() #Cartesian space-time interpolation
    xgrid=collect(range(0.0,1.0,step=0.1))
    ygrid=collect(range(0.0,2.0,step=0.1))
-   grid=CartesianGrid(xgrid,ygrid)
+   grid=CartesianXYGrid(xgrid,ygrid)
    times=collect(range(0.0,3.0,step=0.1))
    pressure(x,y,t)=1.0*x+10.0*y+100.0*t
    p=[pressure(x,y,t) for x in xgrid, y in ygrid, t in times]
@@ -95,10 +95,10 @@ function test2() #Cartesian space-time interpolation
    @test pi3≈10.1
 end
 
-function test3() #CartesianGrid with one dimension of length 1
+function test3() #CartesianXYGrid with one dimension of length 1
    xgrid=collect(range(0.0,1.0,step=0.1))
    ygrid=[0.0]
-   grid=CartesianGrid(xgrid,ygrid)
+   grid=CartesianXYGrid(xgrid,ygrid)
    @test grid.bbox==[0.0,1.0,0.0,0.0]
    @test length(grid.xnodes)==11
    @test length(grid.ynodes)==1
@@ -139,7 +139,7 @@ end
 function test4() #Cartesian space-time interpolation with one dimension of length 1
    xgrid=collect(range(0.0,1.0,step=0.1))
    ygrid=[0.0]
-   grid=CartesianGrid(xgrid,ygrid)
+   grid=CartesianXYGrid(xgrid,ygrid)
    times=collect(range(0.0,3.0,step=0.1))
    pressure(x,y,t)=1.0*x+10.0*y+100.0*t
    p=[pressure(x,y,t) for x in xgrid, y in ygrid, t in times]

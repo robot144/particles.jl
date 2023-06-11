@@ -24,7 +24,7 @@ Using the ZarrData struct the file-handling becomes object-oriented.
 mutable struct ZarrData
    file::ZGroup
    #derived data
-   grid::CartesianGrid
+   grid::CartesianXYGrid
    """
    Constructor
    Zarr_data = ZarrData(".","my_Zarr_file.zarr")
@@ -33,7 +33,7 @@ mutable struct ZarrData
       file=zopen(joinpath(path,filename))
       x=collect(file.arrays["x_center"])
       y=collect(file.arrays["y_center"])
-      grid=CartesianGrid(x,y,spherical)
+      grid=CartesianXYGrid(x,y,spherical)
       return new(file,grid)
    end
 end
