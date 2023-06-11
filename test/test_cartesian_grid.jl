@@ -187,10 +187,62 @@ function test4() #Cartesian space-time interpolation with one dimension of lengt
    @test pi3≈10.1
 end
 
+function test5() #CartesianXYzGrid with layers for z no times
+   xgrid=collect(range(0.0,1.0,step=0.2))
+   ygrid=collect(range(0.0,2.0,step=0.2))
+   nlayers=3
+   zgrid=zeros(length(xgrid),length(ygrid),nlayers+1) #depths of layer interfaces
+   values=zeros(length(xgrid),length(ygrid),nlayers)  #values to be interpolated at each layer
+   for k in 1:nlayers
+      for j in 1:length(ygrid)
+         for i in 1:length(xgrid)
+            x = xgrid[i]
+            y = ygrid[j]
+            d = 10.0 + 5.0*exp(-((x-0.5)^2+(y-1.0)^2)/0.1) #depth
+            zgrid[i,j,k+1]= -d*k/nlayers
+            values[i,j,k]= -d*(k-0.5)/nlayers # z value at layer centre
+         end
+      end
+   end
+   grid=CartesianXYZGrid(xgrid,ygrid,zgrid)
+   # xy_grid is now in grid.xy_grid
+   @test grid.xy_grid.bbox==[0.0,1.0,0.0,2.0]
+   @test length(grid.xy_grid.xnodes)==6
+   @test length(grid.xy_grid.ynodes)==11
+   println("=== start: grid ===")
+   dump(grid)
+   println("===  end: grid ===")
+   @test in_bbox(grid,0.5,0.5)==true
+   @test in_bbox(grid,1.5,0.5)==false
+   #interpolate at a point
+   x0=0.5;y0=0.5;z0=-2.0
+   # double check in x,y space
+   xi,yi=find_index(grid.xy_grid,x0,y0)
+   @test (xi,yi)==(3,3)
+   println("x[xi]=$(xgrid[xi]) y[yi]=$(ygrid[yi])")
+   (x_indices,y_indices,weights)=find_index_and_weights(grid.xy_grid,x0,y0)
+   println("x_indices=$(x_indices) y_indices=$(y_indices) weights=$(weights)")
+   # now with z
+   val_interp0 = interpolate(grid,x0,y0,z0,values,999.0)
+   println("val_interp=$(val_interp0), z=$(z0)")
+   @test val_interp0≈z0
+   # point outside grid
+   x1=1.5;y1=0.5;z1=-3.0
+   val_interp1 = interpolate(grid,x1,y1,z1,values,999.0)
+   println("val_interp=$(val_interp1), z=$(z1)")
+   @test val_interp1≈999.0
+   # point above surface
+   x2=0.5;y2=0.5;z2=3.0
+   val_interp2 = interpolate(grid,x2,y2,z2,values,999.0)
+   println("val_interp=$(val_interp2), z=$(z2)")
+   @test val_interp2≈999.0
+end
+
 test1()
 test2()
 # similar to test2 but with one dimension of length 1
 test3()
 test4()
+test5()
 
 

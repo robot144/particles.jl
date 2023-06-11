@@ -1,15 +1,24 @@
-# some tools for unstructured grids
+# some tools for Cartesian grids
+# Cartesian grids have a regular x-y grid, that may be spherical or not, but does not depend on time
+# The vertical layering may depend on time and x and y.
+# There are several cases:
+# 1. x,y but no z,t - CartesianXYGrid
+# 2. x,y,t but no z - CartesianXYTGrid
+# 3. x,y,z but no t - CartesianXYZGrid (lower case z indicates x,y,layer dependent z)
+# 4. x,y,z,t        - CartesianXYZTGrid (lower case z indicates x,y,layer,t dependent z)
+# 
+# Independent, true Cartesian grids are not supported yet, and may be added later with capital Z names.
 #
-#CartesianGrid: spatial interpolation on regular x-y grid
-# function CartesianGrid(xnodes::Array,ynodes::Array,spherical::Bool=true)
-# function dump(grid::CartesianGrid)
+#CartesianXYGrid: spatial interpolation on regular x-y grid
+# function CartesianXYGrid(xnodes::Array,ynodes::Array,spherical::Bool=true)
+# function dump(grid::CartesianXYGrid)
 # function in_bbox(grid::CartesianGrd,xpoint,ypoint)
-# function find_index(grid::CartesianGrid,xpoint,ypoint)
-# function find_index_and_weights(grid::CartesianGrid,xpoint,ypoint)
+# function find_index(grid::CartesianXYGrid,xpoint,ypoint)
+# function find_index_and_weights(grid::CartesianXYGrid,xpoint,ypoint)
 # function apply_index_and_weights(xindices,yindices,weights,values,dummy=0.0)
-# function interpolate(grid::CartesianGrid,xpoint::Number,ypoint::Number,values,dummy=0.0)
+# function interpolate(grid::CartesianXYGrid,xpoint::Number,ypoint::Number,values,dummy=0.0)
 # CartesianXYTGrid: space-time interpolation
-# function CartesianXYTGrid(grid::CartesianGrid,times::AbstractVector,values::AbstractArrayi,name::String,missing_value::Number,scaling=1.0,offset=0.0)
+# function CartesianXYTGrid(grid::CartesianXYGrid,times::AbstractVector,values::AbstractArrayi,name::String,missing_value::Number,scaling=1.0,offset=0.0)
 # function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::Number,dummy=0.0)
 # function get_map_slice(xyt::CartesianXYTGrid,ti:Integer)
 # function update_cache(xyt::CartesianXYTGrid,t)
@@ -18,7 +27,7 @@
 
 debuglevel=1
 
-if !@isdefined(CartesianGrid)
+if !@isdefined(CartesianXYGrid)
 mutable struct CartesianXYGrid <: SpaceGrid
    xnodes::Array{Float64,1}     #x-coordinates of nodes
    ynodes::Array{Float64,1}     #y-coordinates of nodes
@@ -53,7 +62,7 @@ end
 end #ifdef
 
 #
-# CartesianGrid functions
+# CartesianXYGrid functions
 #
 """
    dump(grid)
@@ -151,7 +160,6 @@ function interpolate(grid::CartesianXYGrid,xpoint::Number,ypoint::Number,values,
    xindices,yindices,weights = find_index_and_weights(grid,xpoint,ypoint)
    return apply_index_and_weights(xindices,yindices,weights,values,dummy)
 end
-
 
 #
 # CartesianXYTGrid functions
@@ -346,5 +354,82 @@ function interpolate(xyt::CartesianXYTGrid,xpoint::Number,ypoint::Number,time::N
    if isnan(value)
       value=dummy
    end
+   return value
+end
+
+#
+# CartesianXYzGrid functions
+#
+
+if !@isdefined(CartesianXYZGrid)
+   mutable struct CartesianXYZGrid <: SpaceGrid
+      xy_grid::CartesianXYGrid #xy-coordinates of nodes
+      z_nodes::Array #z-coordinates of nodes
+      nlayers::Int #number of layers
+      function CartesianXYZGrid(xnodes::Array,ynodes::Array,znodes::Array,spherical::Bool=true)
+         xy_grid=CartesianXYGrid(xnodes,ynodes,spherical)
+         if length(size(znodes))==1
+            error("1D znodes not implemented")
+         elseif length(size(znodes))==3
+            nlayers=size(znodes,3)-1 #number of layers
+         else
+            error("znodes must be 1D or 3D array")
+         end   
+         return new(xy_grid,znodes,nlayers)
+      end
+   end
+end #ifdef
+
+#
+# CartesianXYGrid functions
+#
+"""
+   dump(grid)
+Print a summary of the grid to screen.
+"""
+function dump(grid::CartesianXYZGrid)
+   dump(grid.xy_grid)
+   println("no layers=$(grid.nlayers)") 
+   println("dimensions z: $(size(grid.z_nodes))")
+end
+
+"""
+   boolean_inbox=in_bbox(grid,xpoint,ypoint)
+"""
+function in_bbox(grid::CartesianXYZGrid,xpoint,ypoint)
+   return in_bbox(grid.xy_grid,xpoint,ypoint)
+end
+
+"""
+function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint::Number,values,dummy=0.0)
+Perform trilinear interpolation in space.
+   example: interpolate(grid,1.0,1.0,1.0,values,NaN)
+   values is a 3D array with dimensions (nx,ny,nz)   
+"""
+function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint::Number,values,dummy=0.0)
+   if length(size(values))!=3
+      error("values must be 3D array")
+   end
+   xindices,yindices,weights = find_index_and_weights(grid.xy_grid,xpoint,ypoint)
+   if xindices[1]<0 #outside grid
+      return dummy
+   end
+   # find z limits
+   z0 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,1],NaN)
+   z1 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,grid.nlayers+1],NaN)
+   z_min=min(z0,z1)
+   z_max=max(z0,z1)
+   if zpoint<z_min || zpoint>z_max
+      return dummy
+   end
+   #z-interpolation
+   short_values=zeros(length(xindices))
+   for i=eachindex(xindices)
+      z_sel=grid.z_nodes[xindices[i],yindices[i],:]
+      val_sel=values[xindices[i],yindices[i],:]
+      short_values[i]=interpolation_linear_grid_edge_value_center(z_sel, val_sel, zpoint; extrapolate=true, order=1)
+   end
+   #xy-interpolation
+   value=sum(short_values.*weights)
    return value
 end

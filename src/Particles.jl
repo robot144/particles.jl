@@ -38,7 +38,9 @@ export BaseDataSource, initialize_interpolation, BaseGrid, SpaceGrid, SpaceTimeG
 export Grid, Interpolator, add_grid!, interpolate, nodes_per_cell, winding_number, find_first_cell, get_values_by_cells!, find_first_cell, find_cells, create_node_tree!, dump, dump_subgrid, dump_array
 
 # cartesian_grid.jl
-export CartesianXYGrid, dump, in_bbox, find_index, find_index_and_weights, apply_index_and_weights, interpolate, CartesianXYTGrid, get_map_slice, update_cache, weights
+export CartesianXYGrid, dump, in_bbox, find_index, find_index_and_weights, apply_index_and_weights, 
+    interpolate, CartesianXYTGrid, get_map_slice, update_cache, weights,
+    CartesianXYZGrid
 
 # wms_client.jl
 export WmsServer, get_map, plot_image
