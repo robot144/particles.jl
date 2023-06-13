@@ -381,7 +381,61 @@ if !@isdefined(CartesianXYZGrid)
 end #ifdef
 
 #
-# CartesianXYGrid functions
+# CartesianXYZGrid functions
+#
+"""
+   dump(grid)
+Print a summary of the grid to screen.
+"""
+function dump(grid::CartesianXYZGrid)
+   dump(grid.xy_grid)
+   println("no layers=$(grid.nlayers)") 
+   println("dimensions z: $(size(grid.z_nodes))")
+end
+
+"""
+   boolean_inbox=in_bbox(grid,xpoint,ypoint)
+"""
+function in_bbox(grid::CartesianXYZGrid,xpoint,ypoint)
+   return in_bbox(grid.xy_grid,xpoint,ypoint)
+end
+
+"""
+function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint::Number,values,dummy=0.0)
+Perform trilinear interpolation in space.
+   example: interpolate(grid,1.0,1.0,1.0,values,NaN)
+   values is a 3D array with dimensions (nx,ny,nz)   
+"""
+function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint::Number,values,dummy=0.0)
+   if length(size(values))!=3
+      error("values must be 3D array")
+   end
+   xindices,yindices,weights = find_index_and_weights(grid.xy_grid,xpoint,ypoint)
+   if xindices[1]<0 #outside grid
+      return dummy
+   end
+   # find z limits
+   z0 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,1],NaN)
+   z1 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,grid.nlayers+1],NaN)
+   z_min=min(z0,z1)
+   z_max=max(z0,z1)
+   if zpoint<z_min || zpoint>z_max
+      return dummy
+   end
+   #z-interpolation
+   short_values=zeros(length(xindices))
+   for i=eachindex(xindices)
+      z_sel=grid.z_nodes[xindices[i],yindices[i],:]
+      val_sel=values[xindices[i],yindices[i],:]
+      short_values[i]=interpolation_linear_grid_edge_value_center(z_sel, val_sel, zpoint; extrapolate=true, order=1)
+   end
+   #xy-interpolation
+   value=sum(short_values.*weights)
+   return value
+end
+
+#
+# CartesianXYZTGrid functions
 #
 """
    dump(grid)
