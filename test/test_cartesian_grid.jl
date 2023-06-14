@@ -187,7 +187,7 @@ function test4() #Cartesian space-time interpolation with one dimension of lengt
    @test pi3≈10.1
 end
 
-function test5() #CartesianXYzGrid with layers for z no times
+function test5() #CartesianXYZGrid with layers for z no times
    xgrid=collect(range(0.0,1.0,step=0.2))
    ygrid=collect(range(0.0,2.0,step=0.2))
    nlayers=3
@@ -238,11 +238,76 @@ function test5() #CartesianXYzGrid with layers for z no times
    @test val_interp2≈999.0
 end
 
+function test6() #Cartesian space-time interpolation with 3 dimensions plus time
+   xgrid=collect(range(0.0,1.0,step=0.1))
+   ygrid=collect(range(0.0,2.0,step=0.2))
+   times=collect(range(0.0,3.0,step=0.1))
+   nlayers=3
+   depth(x,y)=10.0 + 5.0*exp(-((x-0.5)^2+(y-1.0)^2)/0.1) #depth
+   waterlevel(x,y,t)=0.01*t
+   layer_ifaces(x,y,k,t)= waterlevel(x,y,t)-(waterlevel(x,y,t)-depth(x,y))*k/nlayers
+   zgrid=[layer_ifaces(x,y,k,t) for x in xgrid, y in ygrid, k in 0:nlayers, t in times]
+   pressure(x,y,k,t)= -(waterlevel(x,y,t)-depth(x,y))*(k-0.5)/nlayers # z value at layer centre
+   p=[pressure(x,y,k,t) for x in xgrid, y in ygrid, k in 1:nlayers, t in times]
+
+   grid=CartesianXYZGrid(xgrid,ygrid,[]) #zgrid will come later
+   xyzt=CartesianXYZTGrid(grid,times,p,zgrid,"p",0.0,9999.0)
+   @test xyzt.name=="p"
+   @test xyzt.scaling==1.0
+   @test xyzt.offset==0.0
+   @test xyzt.missing_value==0.0
+   @test length(xyzt.cache)==3
+   @test size(xyzt.cache[3])==(11,11,3)
+   @test all(xyzt.time_cache.≈[0.0,0.1,0.2])
+   @test xyzt.time_cache_index==3
+
+   #low level first
+   update_cache(xyzt,0.1) #no change to cache
+   @test xyzt.time_cache_index==3
+   update_cache(xyzt,0.3) #advance to next time
+   @test xyzt.time_cache_index==4
+   update_cache(xyzt,0.4) #advance to next time
+   @test xyzt.time_cache_index==5
+   update_cache(xyzt,1.0) #big step forward - refresh cache
+   @test xyzt.time_cache_index==13
+   update_cache(xyzt,1.51) #big step forward - refresh cache
+   @test xyzt.time_cache_index==18
+   p1=get_map_slice(xyzt,1)
+   println("p1=$(p1)")
+   @test size(p1)==(11,11,3)
+   @test p1[1,1,1]≈1.6666697722109767
+   @test p1[2,1,1]≈1.6666743050731136
+   @test p1[1,3,1]≈1.6685357230995714
+   @test p1[1,1,3]≈8.333348861054883
+   z1=get_zmap_slice(xyzt,1)
+   println("z1=$(z1)")
+
+   update_cache(xyzt,0.0) #no change to cache
+   w=weights(xyzt,0.025)
+   @test all(w.≈(0.75,0.25,0.0))
+   w=weights(xyzt,0.125)
+   @test all(w.≈(0.0,0.75,0.25))
+
+   #higher level interpolation
+   x1=0.1;y1=0.0;z1=0.0;t1=0.0
+   pi1=interpolate(xyzt,x1,y1,z1,t1,999.0)
+   @test pi1≈999.0 #pressure(x1,y1,1,t1)
+   x2=0.2;y2=0.2;z2=2.0;t2=0.0
+   pi2=interpolate(xyzt,x2,y2,z2,t2,999.0)
+   @test pi2≈2.0
+   x3=0.4;y3=0.6;z3=8.0;t3=0.0
+   pi3=interpolate(xyzt,x3,y3,z3,t3,999.0)
+   @test pi3≈8.0
+   x4=0.4;y4=0.6;z4=8.0;t4=0.0
+   pi4=interpolate(xyzt,x4,y4,z4,t4,999.0)
+   @test pi4≈8.0
+end
+
 test1()
 test2()
 # similar to test2 but with one dimension of length 1
 test3()
 test4()
 test5()
-
+test6()
 

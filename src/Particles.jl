@@ -40,7 +40,7 @@ export Grid, Interpolator, add_grid!, interpolate, nodes_per_cell, winding_numbe
 # cartesian_grid.jl
 export CartesianXYGrid, dump, in_bbox, find_index, find_index_and_weights, apply_index_and_weights, 
     interpolate, CartesianXYTGrid, get_map_slice, update_cache, weights,
-    CartesianXYZGrid
+    CartesianXYZGrid, CartesianXYZTGrid, get_zmap_slice
 
 # wms_client.jl
 export WmsServer, get_map, plot_image
