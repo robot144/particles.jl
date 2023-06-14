@@ -24,7 +24,9 @@ Using the ZarrData struct the file-handling becomes object-oriented.
 mutable struct ZarrData
    file::ZGroup
    #derived data
-   grid::CartesianXYGrid
+   xy_grid::CartesianXYGrid
+   xyz_grid::CartesianXYZGrid
+   zgrid::AbstractArray
    """
    Constructor
    Zarr_data = ZarrData(".","my_Zarr_file.zarr")
@@ -33,8 +35,14 @@ mutable struct ZarrData
       file=zopen(joinpath(path,filename))
       x=collect(file.arrays["x_center"])
       y=collect(file.arrays["y_center"])
-      grid=CartesianXYGrid(x,y,spherical)
-      return new(file,grid)
+      xy_grid=CartesianXYGrid(x,y,spherical)
+      xyz_grid=CartesianXYZGrid(x,y,[])
+      if "z_center_3d" in keys(file.arrays)
+         zgrid=file.arrays["z_iface_3d"]
+      else 
+         error("Variable z_center_3d not found in Zarr file")
+      end
+      return new(file,xy_grid,xyz_grid,zgrid)
    end
 end
 
@@ -180,10 +188,27 @@ function initialize_interpolation(data::ZarrData,varname::String,reftime::DateTi
    missing_value=values.attrs["_FillValue"]
    scaling=values.attrs["scale_factor"]
    offset=values.attrs["add_offset"]
-   xyt=CartesianXYTGrid(data.grid,times,values,varname,missing_value,scaling,offset,cache_direction)
-   function f(x,y,z,t)
-      value=interpolate(xyt,x,y,t,dummy)
-      return value
+   #println(">>>>> var $(varname) size values $(size(values))")
+   if length(size(values))==3 # TODO this assumes time dependence
+      ## DEL grid=CartesianGrid(data.grid,values[:,:,1])
+      xyt=CartesianXYTGrid(data.xy_grid,times,values,varname,missing_value,scaling,offset,cache_direction)
+      function f_xyt(x,y,z,t)
+         value=interpolate(xyt,x,y,t,dummy)
+         return value
+      end
+      return f_xyt
+   elseif length(size(values))==4
+      z_missing_value=data.zgrid.attrs["_FillValue"]
+      z_scaling=data.zgrid.attrs["scale_factor"]
+      z_offset=data.zgrid.attrs["add_offset"]   
+      xyzt=CartesianXYZTGrid(data.xyz_grid,times,values,data.zgrid,varname,
+      missing_value,z_missing_value,scaling,z_scaling,offset,z_offset,cache_direction)
+      function f_xyzt(x,y,z,t)
+         value=interpolate(xyzt,x,y,z,t,dummy)
+         return value
+      end
+      return f_xyzt
+   else
+      error("only 2D (one layer) and 3D (multiple layer) variables supported for now.")
    end
-   return f
 end

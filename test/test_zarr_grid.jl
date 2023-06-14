@@ -65,8 +65,11 @@ function test1()
     @test h2≈ 0.0079666666
 
     # TODO: 3d interpolation for z too
-    @test false
+    u=initialize_interpolation(Zarr_data,"x_velocity",t0)
+    u1=u(140.0,0.5,-2.0,20.0) #x,y,z,t
+    @test u1≈0.024742951907131133
+    u2=u(140.0,0.5,-2.0,120.0) #x,y,z,t
+    @test u2≈-0.52095
 end
-
 
 test1()
