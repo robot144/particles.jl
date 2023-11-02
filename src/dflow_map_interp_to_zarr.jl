@@ -17,7 +17,7 @@ debuglevel=1
 # defaults
 #
 # these variables are added to the configuration by default
-try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature",
+try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature","waterdepth",
     "z_center_3d","z_iface_3d"] 
 # default settings per variable
 defaults = Dict(
@@ -47,6 +47,12 @@ defaults = Dict(
         "_FillValue" => 9999 ),
     "temperature" => Dict(
         "name" => "temperature",
+        "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "waterdepth" => Dict(
+        "name" => "waterdepth",
         "scale_factor" => 0.01, 
         "add_offset" => 0.0,
         "data_type" => "Int16",
@@ -89,6 +95,7 @@ aliases=Dict{String,Vector{String}}(
     "x_velocity"  => ["ucx", "mesh2d_ucx"],
     "y_velocity"  => ["ucy", "mesh2d_ucy"],
     "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one not L)?
+    "waterdepth"  => ["waterdepth","mesh2d_waterdepth"],
     "temperature" => ["tem1","mesh2d_tem1"], 
     "x_center"    => ["FlowElem_xcc","mesh2d_face_x"],
     "y_center"    => ["FlowElem_ycc","mesh2d_face_y"],
@@ -414,21 +421,42 @@ function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy
 Convert array from float types to integer type
 Values in teh input that are NaN or equal to in_dummy are set to out_dummy 
 """
+# function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy)
+# # This implementation claims too much memory
+#    in_dummies=in_values.==in_dummy
+#    in_nans=isnan.(in_values)
+#    in_values[in_dummies].=out_offset
+#    in_values[in_nans].=out_offset
+#    out_max=typemax(out_type)
+#    out_min=typemin(out_type)
+#    temp=(in_values.-out_offset)./out_scale
+#    temp=min.(temp,out_max)
+#    temp=max.(temp,out_min)
+#    out_temp=round.(out_type,temp)
+#    out_temp[in_dummies].=out_dummy
+#    out_temp[in_nans].=out_dummy
+#    return out_temp
+# end
+
 function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy)
-   in_dummies=in_values.==in_dummy
-   in_nans=isnan.(in_values)
-   in_values[in_dummies].=out_offset
-   in_values[in_nans].=out_offset
-   out_max=typemax(out_type)
-   out_min=typemin(out_type)
-   temp=(in_values.-out_offset)./out_scale
-   temp=min.(temp,out_max)
-   temp=max.(temp,out_min)
-   out_temp=round.(out_type,temp)
-   out_temp[in_dummies].=out_dummy
-   out_temp[in_nans].=out_dummy
-   return out_temp
-end
+    # optimized version
+    out_max=typemax(out_type)
+    out_min=typemin(out_type)
+    out_values=Array{out_type}(undef,size(in_values))
+    for i in eachindex(in_values)
+        in_value = in_values[i]
+        if isnan(in_value) || (in_value==in_dummy)
+            out_value = out_dummy
+        else
+            temp_value = (in_value - out_offset)/out_scale
+            temp_value = min(temp_value,out_max)
+            temp_value = max(temp_value,out_min)
+            out_value = round(out_type,temp_value)
+        end
+        out_values[i]=out_value
+    end
+    return out_values
+ end
 
 function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config,dumval=NaN)
     println("interpolating variable name=$(varname)")
@@ -514,9 +542,9 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 print("|")
                 for ilayer in 1:nz
                     print(".")
-                    in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
-                    in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
-                    out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
+                    @time in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
+                    @time in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
+                    @time out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                     var[:,:,ilayer,it]=out_temp[:,:]
                 end
             end
@@ -676,7 +704,7 @@ function main(args)
         vars=varlist(config)
         for varname in vars
             println("Interpolating for variable $(varname)")
-            interp_var(map,interp,output,varname,xpoints,ypoints,config)
+            @time interp_var(map,interp,output,varname,xpoints,ypoints,config) #TODO Far too much memory is allocated here!
         end
         #copy dimensions and coordinates
         # make additional fullgrid z coordinates options in try_vars above
@@ -719,7 +747,7 @@ end
 
 
 #
-# main 
+# Call main if used as a script, but not if loaded as a module 
 #
 
 # some defaults for manual tesing
@@ -730,7 +758,7 @@ configfile=["config_map_interp.toml"] #TODO these names are not used
 # do nothing when called as module
 if abspath(PROGRAM_FILE) == @__FILE__
     println("ARGS = $(ARGS)")
-    main(ARGS)
+    @time main(ARGS)
 end
 
 nothing
