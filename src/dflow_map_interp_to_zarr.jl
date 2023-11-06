@@ -17,7 +17,7 @@ debuglevel=1
 # defaults
 #
 # these variables are added to the configuration by default
-try_vars = ["waterlevel","x_velocity","y_velocity","salinity","temperature","waterdepth",
+try_vars = ["waterlevel","x_velocity","y_velocity","z_velocity","salinity","temperature","waterdepth",
     "z_center_3d","z_iface_3d"] 
 # default settings per variable
 defaults = Dict(
@@ -36,6 +36,12 @@ defaults = Dict(
     "y_velocity" => Dict(
         "name" => "y_velocity",
         "scale_factor" => 0.001, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "z_velocity" => Dict(
+        "name" => "z_velocity",
+        "scale_factor" => 1.0E-6, 
         "add_offset" => 0.0,
         "data_type" => "Int16",
         "_FillValue" => 9999 ),
@@ -94,6 +100,7 @@ aliases=Dict{String,Vector{String}}(
     "waterlevel"  => ["s1", "mesh2d_s1"],
     "x_velocity"  => ["ucx", "mesh2d_ucx"],
     "y_velocity"  => ["ucy", "mesh2d_ucy"],
+    "z_velocity"  => ["ww1", "mesh2d_ww1"], #vertical velocity
     "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one not L)?
     "waterdepth"  => ["waterdepth","mesh2d_waterdepth"],
     "temperature" => ["tem1","mesh2d_tem1"], 
@@ -107,7 +114,7 @@ aliases=Dict{String,Vector{String}}(
     "time"       => ["time"]
 )
 # valriable names that have a vertical position at the interface instead of the center. The center is the defauls
-znames_iface=["z_iface_3d"]
+znames_iface=["z_iface_3d","z_velocity"]
 
 chunk_target_size=1000000
 #
@@ -528,9 +535,11 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["time","z","y","x"]
             varatts["coordinates"]="time z_center y_center x_center"
+            at_center=true
             if varname in znames_iface
                 varatts["_ARRAY_DIMENSIONS"]=["time","z_iface","y","x"]
-                varatts["coordinates"]="time z_iface_y_center x_center"
+                varatts["coordinates"]="time z_iface y_center x_center"
+                at_center=false
             end
             if (nx*ny*nz)<chunk_target_size
                 var = zcreate(out_type, output, varname,(nx,ny,nz,nt)...,attrs=varatts,chunks=(x_chunksize,y_chunksize,nz,1))
