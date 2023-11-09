@@ -18,7 +18,7 @@ debuglevel=1
 #
 # these variables are added to the configuration by default
 try_vars = ["waterlevel","x_velocity","y_velocity","z_velocity","salinity","temperature","waterdepth",
-    "z_center_3d","z_iface_3d"] 
+    "eddy_visc_z", "z_center_3d","z_iface_3d"] 
 # default settings per variable
 defaults = Dict(
     "waterlevel" => Dict(
@@ -54,6 +54,12 @@ defaults = Dict(
     "temperature" => Dict(
         "name" => "temperature",
         "scale_factor" => 0.01, 
+        "add_offset" => 0.0,
+        "data_type" => "Int16",
+        "_FillValue" => 9999 ),
+    "eddy_visc_z" => Dict(
+        "name" => "eddy_visc_z",
+        "scale_factor" => 1.0E-6, 
         "add_offset" => 0.0,
         "data_type" => "Int16",
         "_FillValue" => 9999 ),
@@ -104,6 +110,7 @@ aliases=Dict{String,Vector{String}}(
     "salinity"    => ["sa1","mesh2d_sa1"], #sa1 not sal (one not L)?
     "waterdepth"  => ["waterdepth","mesh2d_waterdepth"],
     "temperature" => ["tem1","mesh2d_tem1"], 
+    "eddy_visc_z" => ["vicwwu","mesh2d_vicwwu"], 
     "x_center"    => ["FlowElem_xcc","mesh2d_face_x"],
     "y_center"    => ["FlowElem_ycc","mesh2d_face_y"],
     "z_center"    => ["mesh2d_layer_z","LayCoord_cc"], #1d
@@ -465,6 +472,7 @@ function scale_values(in_values,in_dummy,out_type,out_offset,out_scale,out_dummy
     return out_values
  end
 
+
 function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,varname::String,xpoints,ypoints,config,dumval=NaN)
     println("interpolating variable name=$(varname)")
     globals=config["global"]
@@ -531,7 +539,7 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
             var=out_temp
         end
     else #is 3D
-        if hastime
+        if hastime #x y z t
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["time","z","y","x"]
             varatts["coordinates"]="time z_center y_center x_center"
@@ -551,13 +559,19 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
                 print("|")
                 for ilayer in 1:nz
                     print(".")
-                    @time in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
+                    #in_temp_uninterpolated=[]
+                    # check if variable is given on edges
+                    if varatts["location"]=="edge" #not face
+                        @time in_temp_uninterpolated=load_nc_map_slice_at_faces(inputs,ncname,it,ilayer)
+                    else
+                        @time in_temp_uninterpolated=load_nc_map_slice(inputs,ncname,it,ilayer)
+                    end
                     @time in_temp=interpolate(interp,xpoints,ypoints,in_temp_uninterpolated,dumval)
                     @time out_temp=scale_values(in_temp,in_dummy,out_type,out_offset,out_scale,out_dummy)
                     var[:,:,ilayer,it]=out_temp[:,:]
                 end
             end
-        else
+        else # x y z
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["z","y","x"]
             varatts["coordinates"]="z_center y_center x_center"

@@ -165,6 +165,8 @@ function test_lock_exchange()
    @test haskey(config,"waterlevel")
    @test haskey(config,"x_velocity")
 
+   @test haskey(config,"z_velocity")
+
    # run interpolation with default config file
    result=Base.invokelatest(main,[configfile]) #invokelatest is needed for include in function
 
@@ -186,6 +188,14 @@ function test_lock_exchange()
    @test haskey(z,"y_velocity")
    v = z["y_velocity"][:,:,:,:]
    @test size(v) == (344,1,40,16)
+   @test haskey(z,"z_velocity")
+   w = z["z_velocity"][:,:,:,:]
+   @test size(w) == (344,1,41,16) # one more interface than layers
+
+   @test haskey(z,"eddy_visc_z")
+   nu = z["eddy_visc_z"][:,:,:,:]
+   @test size(nu) == (344,1,41,16) # one more interface than layers  
+
    @test haskey(z,"waterlevel")
    h = z["waterlevel"][:,:,:]
    @test size(h) == (344,1,16)
@@ -219,8 +229,3 @@ test_estuary()
 test_f34()
 test_lock_exchange()
 
-#test2 needs large input files that are not present in the repository.
-#only run tests if the files have been added (manually for now)
-# if isfile(joinpath("../test_data","DCSM-FM_0_5nm_0000_map.nc"))
-#    test2()
-# end

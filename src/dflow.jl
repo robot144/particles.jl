@@ -8,6 +8,34 @@ using Glob
 
 debuglevel = 1 # 0-nothing, larger more output
 
+# cache arrays
+global edge_faces_cache=[]
+global edge_type_cache=[]
+global nfaces_cache=[]
+
+function fill_cache_arrays(map)
+   #global edge_faces_cache
+   #global edge_type_cache
+   if length(edge_faces_cache)==0
+      for i in eachindex(map)
+         temp_mat=map[i].vars["mesh2d_edge_faces"][:,:]
+         push!(edge_faces_cache,temp_mat)
+      end
+   end
+   if length(edge_type_cache)==0
+      for i in eachindex(map)
+         temp_vec=map[i].vars["mesh2d_edge_type"][:]
+         push!(edge_type_cache,temp_vec)
+      end
+   end
+   if length(nfaces_cache)==0
+      for i in eachindex(map)
+         temp=Int64(map[i].dim["mesh2d_nFaces"].dimlen)
+         push!(nfaces_cache,temp)
+      end
+   end
+end
+
 
 """
    map=load_nc_info(path,filename)
@@ -93,7 +121,7 @@ end
    waterlevel = load_nc_map_slice(map,"s1",1)
 Load data for a time-dependent variable for a specific time and for all domains.
 """
-function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1, domainnr = 0)
+function load_nc_map_slice(map, varname, itime, layer_index=-1, domainnr = 0)
    result = []
    domainnr != 0 || (domainnr = 1:length(map))
    for i in domainnr
@@ -101,9 +129,10 @@ function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1, domainnr =
       if ndims(map[i][varname]) == 2
          push!(result, map[i][varname][:,itime])
       elseif ndims(map[i][varname]) == 3
-         if sigma_layer_index > 0
+         if layer_index > 0
             # if sigma_layer_index <= size(map[i][varname])[1]
-               push!(result, map[i][varname][sigma_layer_index,:,itime])
+               @show size(map[i][varname])
+               push!(result, map[i][varname][layer_index,:,itime])
             # else
             #    throw(BoundsError(map[i][varname], sigma_layer_index))
             # end
@@ -118,6 +147,86 @@ function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1, domainnr =
    return result
 end
 
+"""
+function map_edges_to_faces_3d!(at_faces,at_edges,edge_faces,edge_type)
+Average edges around each face to get values at faces
+The function works in place, so at_faces is modified.
+edge_faces : array of size (2,nedges) with the face numbers at the ends of each edge
+edge_type  : array of size (nedges) with the type of each edge (1=internal, ...)
+"""
+function map_edges_to_faces_3d!(at_faces,at_edges,edge_faces,edge_type)
+   # at_faces: array of size (nfaces,nlayers)
+   # at_edges: array of size (nedges,nlayers)
+   nfaces=size(at_faces,1)
+   nlayers=size(at_faces,2)
+   nedges=size(at_edges,1)
+   edge_count=zeros(nfaces) # number of edges per face
+   at_faces[:,:].=0.0 #initialize
+   for i=1:size(edge_faces,2)
+       if edge_type[i]==1 # internal edge
+           for j=1:2
+               if edge_faces[j,i]>0
+                   at_faces[edge_faces[j,i],:]+=at_edges[i,:]
+                   edge_count[edge_faces[j,i]]+=1
+               end
+           end
+       end
+   end
+   for i=1:nfaces
+       if edge_count[i]>0
+           at_faces[i,:]./=edge_count[i]
+       end
+   end
+end
+
+function map_edges_to_faces_2d!(at_faces,at_edges,edge_faces,edge_type)
+   # at_faces: array of size (nfaces)
+   # at_edges: array of size (nedges)
+   nfaces=size(at_faces,1)
+   nedges=size(at_edges,1)
+   edge_count=zeros(nfaces) # number of edges per face
+   at_faces[:].=0.0 #initialize
+   for i=1:size(edge_faces,2)
+       if edge_type[i]==1 # internal edge
+           for j=1:2
+               if edge_faces[j,i]>0
+                   at_faces[edge_faces[j,i]]+=at_edges[i]
+                   edge_count[edge_faces[j,i]]+=1
+               end
+           end
+       end
+   end
+   for i=1:nfaces
+       if edge_count[i]>0
+           at_faces[i]/=edge_count[i]
+       end
+   end
+end
+
+"""
+   waterlevel = load_nc_map_slice_at_faces(map,"vicwwu",1,5)
+Load data for a time-dependent variable for a specific time and for all domains.
+Apply simple interpolation from edges to faces if needed.
+"""
+function load_nc_map_slice_at_faces(map, varname, itime, layer_index=-1, domainnr = 0)
+   fill_cache_arrays(map) # fill global cache arrays if not already done
+   # first load data at edges or faces
+   values_temp=load_nc_map_slice(map,varname,itime,layer_index,domainnr)
+   location=map[1][varname].atts["location"]
+   if location=="face" #no interpolation needed, call load_nc_map_slice directly
+      return values_temp
+   end
+   #so interpolation is needed here
+   result = []
+   domainnr != 0 || (domainnr = 1:length(map))  
+   for i in domainnr
+      nfaces=nfaces_cache[i]
+      result_part=zeros(nfaces)
+      map_edges_to_faces_2d!(result_part,values_temp[i],edge_faces_cache[i],edge_type_cache[i])
+      push!(result,result_part)
+   end
+   return result
+end
 
 """
    times=get_times(map,Dates.DateTime(2019,1,1))

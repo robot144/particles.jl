@@ -110,6 +110,45 @@ function test3()
    @test u_value==0.04905390667374792
 end
 
+function test4()
+   # open file for 3d lock exchange
+   dflow_map=load_nc_info("../test_data","locxxz_fullgrid_map.nc")
+   @test length(dflow_map)==1
+
+   #load and inspect a layer of salinity
+   ilayer=5
+   itime=10
+   sal=load_nc_map_slice(dflow_map,"mesh2d_sa1",itime,ilayer)
+   @test length(sal)==1
+   @test length(sal[1])==400
+   @test sal[1][12]≈5.000000000000
+   # inspect vertical eddy viscosity
+   ilayer=2
+   itime=10
+   nu=load_nc_map_slice(dflow_map,"mesh2d_vicwwu",itime,ilayer)
+   @test length(nu)==1
+   @test length(nu[1])==1201
+   @test nu[1][100]≈2.181251740966235e-5
+   # inspect vertical eddy viscosity at FACES
+   ilayer=2
+   itime=10
+   nu_face=load_nc_map_slice_at_faces(dflow_map,"mesh2d_vicwwu",itime,ilayer)
+   @test length(nu_face)==1
+   @test length(nu_face[1])==400
+   @test nu_face[1][100]≈2.2144234788637896e-5
+   #load and inspect a layer of x_velocity
+   ilayer=1
+   itime=10
+   u=load_nc_map_slice(dflow_map,"mesh2d_ucx",itime,ilayer)
+   @test length(u)==1
+   @test length(u[1])==400
+   @test u[1][100]≈0.6020406834128101
+end
+
+#
+# run tests
+#
+
 test1()
 
 #test2 needs large input files that are not present in the repository.
@@ -119,3 +158,5 @@ if isfile(joinpath("../test_data","DCSM-FM_0_5nm_0000_map.nc"))
 end
 
 test3()
+
+test4()
