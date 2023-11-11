@@ -364,20 +364,21 @@ end
 if !@isdefined(CartesianXYZGrid)
    mutable struct CartesianXYZGrid <: SpaceGrid
       xy_grid::CartesianXYGrid #xy-coordinates of nodes
-      z_nodes::Array #z-coordinates of nodes
+      z_ifaces::Array #z-coordinates of layer interfaces
       nlayers::Int #number of layers
-      function CartesianXYZGrid(xnodes::Array,ynodes::Array,znodes::Array,spherical::Bool=true)
+      value_at_iface::Bool #value at interface or center
+      function CartesianXYZGrid(xnodes::Array, ynodes::Array, z_ifaces::Array, spherical::Bool=true, value_at_iface::Bool=false)
          xy_grid=CartesianXYGrid(xnodes,ynodes,spherical)
-         if length(znodes)==0
+         if length(z_ifaces)==0
             nlayers=-1 #not known yet
-         elseif length(size(znodes))==1
+         elseif length(size(z_ifaces))==1
             error("1D znodes not implemented")
-         elseif length(size(znodes))==3
-            nlayers=size(znodes,3)-1 #number of layers
+         elseif length(size(z_ifaces))==3
+            nlayers=size(z_ifaces,3)-1 #number of layers is one less than number of interfaces
          else
             error("znodes must be 1D or 3D array")
          end   
-         return new(xy_grid,znodes,nlayers)
+         return new(xy_grid,z_ifaces,nlayers,value_at_iface)
       end
    end
 end #ifdef
@@ -392,7 +393,7 @@ Print a summary of the grid to screen.
 function dump(grid::CartesianXYZGrid)
    dump(grid.xy_grid)
    println("no layers=$(grid.nlayers)") 
-   println("dimensions z: $(size(grid.z_nodes))")
+   println("dimensions z: $(size(grid.z_ifaces))")
 end
 
 """
@@ -417,8 +418,8 @@ function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint
       return dummy
    end
    # find z limits
-   z0 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,1],NaN)
-   z1 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_nodes[:,:,grid.nlayers+1],NaN)
+   z0 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_ifaces[:,:,1],NaN)
+   z1 = interpolate(grid.xy_grid,xpoint,ypoint,grid.z_ifaces[:,:,grid.nlayers+1],NaN)
    z_min=min(z0,z1)
    z_max=max(z0,z1)
    if zpoint<z_min || zpoint>z_max
@@ -427,9 +428,13 @@ function interpolate(grid::CartesianXYZGrid,xpoint::Number,ypoint::Number,zpoint
    #z-interpolation
    short_values=zeros(length(xindices))
    for i=eachindex(xindices)
-      z_sel=grid.z_nodes[xindices[i],yindices[i],:]
+      z_sel=grid.z_ifaces[xindices[i],yindices[i],:]
       val_sel=values[xindices[i],yindices[i],:]
-      short_values[i]=interpolation_linear_grid_edge_value_center(z_sel, val_sel, zpoint; extrapolate=true, order=1)
+      if grid.value_at_iface
+         short_values[i]=interpolation_linear_grid_edge_value_edge(z_sel, val_sel, zpoint; extrapolate=true, order=1)
+      else
+         short_values[i]=interpolation_linear_grid_edge_value_center(z_sel, val_sel, zpoint; extrapolate=true, order=1)
+      end
    end
    #xy-interpolation
    value=sum(short_values.*weights)
@@ -475,7 +480,7 @@ if !@isdefined(CartesianXYZTGrid)
       """
       function CartesianXYZTGrid(grid::CartesianXYZGrid,times::AbstractVector,values::AbstractArray, z_values::AbstractArray,name::String,missing_value::Number, z_missing_value::Number ,
          scaling=1.0, z_scaling=1.0, offset=0.0, z_offset=0.0,cache_direction::Symbol=:forwards)
-         (debuglevel>3) && println("initialize CartesianXYTGrid.")
+         (debuglevel>3) && println("initialize CartesianXYZTGrid.")
          #keep 3 times in memmory
          time_cache=zeros(3)
          cache=Array{Any,1}(undef,3)
@@ -660,8 +665,8 @@ if !@isdefined(CartesianXYZTGrid)
       w=weights(xyzt,time)
       value=0.0
       for ti=1:3
-         xyzt.grid.z_nodes=xyzt.z_cache[ti]
-         xyzt.grid.nlayers=size(xyzt.cache[ti],3)
+         xyzt.grid.z_ifaces=xyzt.z_cache[ti]
+         xyzt.grid.nlayers=size(xyzt.z_cache[ti],3)-1
          value+=w[ti]*interpolate(xyzt.grid,xpoint,ypoint,zpoint,xyzt.cache[ti],NaN)
       end
       if isnan(value)
