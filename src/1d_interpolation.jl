@@ -93,3 +93,54 @@ function interpolation_linear_grid_edge_value_center(x_values::Vector, y_values:
         end
     end
 end
+
+function interpolation_linear_grid_edge_value_edge(x_values::Vector, y_values::Vector, x::Float64; extrapolate=false, order=1)
+    # linear interpolation of y(x) for a grid with x-values at the edges of the cells
+    # and y-values at the edge of the cells too
+    # x_values: x-values at the edges of the cells (not necessarily equidistant, but increasing or decreasing)
+    # y_values: y-values at the edge of the cells
+    # extrapolate : true or false
+    # order: 1 for linear interpolation
+    # x: x-value to interpolate
+    # returnreturn NaN when out of range in case extrapolate=false
+    # 
+    # example:
+    # x_values = [0.0, 1.0, 2.0, 3.0]
+    # y_values = [0.0, 1.0, 2.0, 3.0]
+    # x = 0.5
+    # y = interpolation_linear_grid_edge_value_edge(x_values, y_values, x)
+    # y == 0.5
+    # x=0.1 -> y=0.1
+    # x=1.0 -> y=1.0
+    # x=3.5 -> y=NaN or 3.5
+
+    decreasing = x_values[end] < x_values[1]
+    i = searchsortedfirst(x_values, x, rev=decreasing)
+
+    if i == 1 # first consider out of range cases
+        if extrapolate
+            return y_values[1]
+        else
+            return NaN
+        end
+    elseif i == length(x_values)+1
+        if extrapolate
+            return y_values[end]
+        else
+            return NaN
+        end
+    else # within range
+        x1 = x_values[i-1]
+        x2 = x_values[i]
+        y1 = y_values[i-1]
+        y2 = y_values[i]
+        if order == 1
+            weight2 = fix_between(abs(x-x1)/(abs(x2-x1)+eps(1.0)),0.0,1.0)
+            weight1 = 1.0-weight2
+            #println("this $(i) $(this_value) $(this_xc) $(this_weight) next $(next_i) $(next_value) $(next_xc) $(next_weight)")
+            return y1*weight1 + y2*weight2
+        else
+            error("order must be 0 or 1")
+        end
+    end
+end
