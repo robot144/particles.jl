@@ -121,7 +121,7 @@ aliases=Dict{String,Vector{String}}(
     "time"       => ["time"]
 )
 # valriable names that have a vertical position at the interface instead of the center. The center is the defauls
-znames_iface=["z_iface_3d","z_velocity"]
+znames_iface=["z_iface_3d","z_velocity", "eddy_visc_z"]
 
 chunk_target_size=1000000
 #
@@ -542,11 +542,11 @@ function interp_var(inputs::Vector{NcFile},interp::Interpolator,output::ZGroup,v
         if hastime #x y z t
             nz=in_size[1]
             varatts["_ARRAY_DIMENSIONS"]=["time","z","y","x"]
-            varatts["coordinates"]="time z_center y_center x_center"
+            varatts["coordinates"]="time z_center_3d y_center x_center"
             at_center=true
             if varname in znames_iface
                 varatts["_ARRAY_DIMENSIONS"]=["time","z_iface","y","x"]
-                varatts["coordinates"]="time z_iface y_center x_center"
+                varatts["coordinates"]="time z_iface_3d y_center x_center"
                 at_center=false
             end
             if (nx*ny*nz)<chunk_target_size
