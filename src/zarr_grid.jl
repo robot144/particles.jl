@@ -42,7 +42,7 @@ mutable struct ZarrData
       if "z_iface_3d" in keys(file.arrays)
          z_iface=file.arrays["z_iface_3d"]
       else 
-         error("Variable z_iface_3d_3d not found in Zarr file")
+         error("Variable z_iface_3d not found in Zarr file")
       end
       return new(file,xy_grid,xyz_grid_center,xyz_grid_iface,z_iface)
    end
