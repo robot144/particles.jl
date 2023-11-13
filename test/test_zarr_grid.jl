@@ -64,12 +64,31 @@ function test1()
     h2=h(140.0,0.5,0.0,120.0)
     @test h2≈ 0.0079666666
 
-    # TODO: 3d interpolation for z too
+    # 3d interpolation for variable u too
     u=initialize_interpolation(Zarr_data,"x_velocity",t0)
     u1=u(140.0,0.5,-2.0,20.0) #x,y,z,t
     @test u1≈0.024742951907131133
     u2=u(140.0,0.5,-2.0,120.0) #x,y,z,t
     @test u2≈-0.52095
+
+    # 3d interpolation for variable w too
+    w=initialize_interpolation(Zarr_data,"z_velocity",t0)
+    w1=w(140.0,0.5,-2.0,20.0) #x,y,z,t
+    @test w1≈-0.0015995024875612163
+    w2=w(140.0,0.5,-2.0,120.0) #x,y,z,t
+    @test w2≈0.024923333333333953
+    w3=w(140.0,0.5,-4.0,120.0) #x,y,z,t
+    @test w3≈0.020094233333333832
+
+    # 3d interpolation for variable nu too
+    # note that nu is very small in most of the domain and small value are rounded to zero
+    nu=initialize_interpolation(Zarr_data,"eddy_visc_z",t0)
+    nu1=nu(260.0,0.5,-9.75,240.0) #x,y,z,t
+    @test nu1≈2.73222222222229e-5
+    nu2=nu(260.0,0.5,-9.75,300.0) #x,y,z,t
+    @test nu2≈0.0001463611111111101
+    nu3=nu(260.0,0.5,-9.75,300.0) #x,y,z,t
+    @test nu3≈0.0001463611111111101
 end
 
 test1()

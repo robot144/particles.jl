@@ -29,7 +29,7 @@ include("particles_core.jl")  # support for background images downloaded with WM
 include("cli.jl")  # support for starting from commandline with TOML or CSV
 
 # 1d_interpolation.jl
-export interpolation_linear_grid_edge_value_center
+export interpolation_linear_grid_edge_value_center, interpolation_linear_grid_edge_value_edge
 
 # grids.jl
 export BaseDataSource, initialize_interpolation, BaseGrid, SpaceGrid, SpaceTimeGrid, get_grid
@@ -46,7 +46,7 @@ export CartesianXYGrid, dump, in_bbox, find_index, find_index_and_weights, apply
 export WmsServer, get_map, plot_image
 
 # dflow.jl
-export load_nc_info, load_dflow_grid, load_nc_var, load_nc_map_slice, load_nc_map_slice_at_faces, find_index, apply_index, get_times, get_reftime, as_DateTime, initialize_interpolation
+export load_nc_info, load_dflow_grid, load_nc_var, load_nc_map_slice, load_nc_map_slice_at_face, find_index, apply_index, get_times, get_reftime, as_DateTime, initialize_interpolation
 
 # era5.jl
 export EraData, load_map_slice, get_reftime, get_times, as_DateTime, initialize_interpolation

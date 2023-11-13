@@ -25,8 +25,9 @@ mutable struct ZarrData
    file::ZGroup
    #derived data
    xy_grid::CartesianXYGrid
-   xyz_grid::CartesianXYZGrid
-   zgrid::AbstractArray
+   xyz_grid_center::CartesianXYZGrid
+   xyz_grid_iface::CartesianXYZGrid
+   z_iface::AbstractArray
    """
    Constructor
    Zarr_data = ZarrData(".","my_Zarr_file.zarr")
@@ -36,13 +37,14 @@ mutable struct ZarrData
       x=collect(file.arrays["x_center"])
       y=collect(file.arrays["y_center"])
       xy_grid=CartesianXYGrid(x,y,spherical)
-      xyz_grid=CartesianXYZGrid(x,y,[])
-      if "z_center_3d" in keys(file.arrays)
-         zgrid=file.arrays["z_iface_3d"]
+      xyz_grid_center=CartesianXYZGrid(x,y,[],spherical,false) 
+      xyz_grid_iface=CartesianXYZGrid(x,y,[],spherical,true) # value_at_iface=true
+      if "z_iface_3d" in keys(file.arrays)
+         z_iface=file.arrays["z_iface_3d"]
       else 
-         error("Variable z_center_3d not found in Zarr file")
+         error("Variable z_iface_3d_3d not found in Zarr file")
       end
-      return new(file,xy_grid,xyz_grid,zgrid)
+      return new(file,xy_grid,xyz_grid_center,xyz_grid_iface,z_iface)
    end
 end
 
@@ -189,7 +191,7 @@ function initialize_interpolation(data::ZarrData,varname::String,reftime::DateTi
    scaling=values.attrs["scale_factor"]
    offset=values.attrs["add_offset"]
    #println(">>>>> var $(varname) size values $(size(values))")
-   if length(size(values))==3 # TODO this assumes time dependence
+   if length(size(values))==3 # x,y,t case TODO check coordinates in more detail
       ## DEL grid=CartesianGrid(data.grid,values[:,:,1])
       xyt=CartesianXYTGrid(data.xy_grid,times,values,varname,missing_value,scaling,offset,cache_direction)
       function f_xyt(x,y,z,t)
@@ -197,12 +199,17 @@ function initialize_interpolation(data::ZarrData,varname::String,reftime::DateTi
          return value
       end
       return f_xyt
-   elseif length(size(values))==4
-      z_missing_value=data.zgrid.attrs["_FillValue"]
-      z_scaling=data.zgrid.attrs["scale_factor"]
-      z_offset=data.zgrid.attrs["add_offset"]   
-      xyzt=CartesianXYZTGrid(data.xyz_grid,times,values,data.zgrid,varname,
-      missing_value,z_missing_value,scaling,z_scaling,offset,z_offset,cache_direction)
+   elseif length(size(values))==4 # x,y,z,t case TODO check coordinates in more detail
+      z_missing_value=data.z_iface.attrs["_FillValue"]
+      z_scaling=data.z_iface.attrs["scale_factor"]
+      z_offset=data.z_iface.attrs["add_offset"]
+      z=data.z_iface
+      at_z_iface="z_iface_3d" in split(data.file.arrays[varname].attrs["coordinates"]," ")
+      if at_z_iface
+         xyzt=CartesianXYZTGrid(data.xyz_grid_iface,times,values,z,varname, missing_value,z_missing_value,scaling,z_scaling,offset,z_offset,cache_direction)
+      else
+         xyzt=CartesianXYZTGrid(data.xyz_grid_center,times,values,z,varname, missing_value,z_missing_value,scaling,z_scaling,offset,z_offset,cache_direction)
+      end
       function f_xyzt(x,y,z,t)
          value=interpolate(xyzt,x,y,z,t,dummy)
          return value
