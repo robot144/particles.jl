@@ -3,54 +3,43 @@
 
 using NetCDF
 using Dates
+using Glob
 # include("unstructured_grid.jl")
 
 debuglevel = 1 # 0-nothing, larger more output
-
-# cache arrays
-global edge_faces_cache=[]
-global edge_type_cache=[]
-global nfaces_cache=[]
-
-function fill_cache_arrays(map)
-   #global edge_faces_cache
-   #global edge_type_cache
-   if length(edge_faces_cache)==0
-      for i in eachindex(map)
-         temp_mat=map[i].vars["mesh2d_edge_faces"][:,:]
-         push!(edge_faces_cache,temp_mat)
-      end
-   end
-   if length(edge_type_cache)==0
-      for i in eachindex(map)
-         temp_vec=map[i].vars["mesh2d_edge_type"][:]
-         push!(edge_type_cache,temp_vec)
-      end
-   end
-   if length(nfaces_cache)==0
-      for i in eachindex(map)
-         temp=Int64(map[i].dim["mesh2d_nFaces"].dimlen)
-         push!(nfaces_cache,temp)
-      end
-   end
-end
 
 
 """
    map=load_nc_info(path,filename)
 Load meta-data of all map-files, i.e. for all domains in the filename.
 """
-function load_nc_info(path, filename)
-   map = []
-   if isa(filename, Regex) # filename used to be a Regex-type (filename_regex::Regex)
-      filenames = filter(x -> ~isnothing(match(filename, x)), readdir(path))
-      filenames = [joinpath(path, filename) for filename = filenames]
+function load_nc_info(path, filename; reftime = DateTime(1950,1,1), tstart = nothing, tend=nothing)
+   if isnothing(tstart) && isnothing(tend) 
+      if isa(filename, Regex) # filename used to be a Regex-type (filename_regex::Regex)
+         filenames = filter(x -> ~isnothing(match(filename, x)), readdir(path))
+         filenames = [joinpath(path, filename) for filename = filenames]
+      elseif occursin("*", filename)
+         filenames = glob(filename, path)
+      else
+         filenames = [joinpath(path, filename)]
+      end
    else
-      filenames = [joinpath(path, filename)]
+      dt_tstart = DateTime(reftime) + Second(tstart)
+      dt_tend = DateTime(reftime) + Second(tend)
+      filenames = []
+      for date in dt_tstart:Dates.Day(1):dt_tend
+         yyyy = Dates.format(date, "yyyy")
+         mm = Dates.format(date, "mm")
+         dd = Dates.format(date, "dd")
+         glob_results = glob("$(yyyy)/$(mm)/gtsm/$(dd)/simulated/WF_DflowFM_gtsm4_1.25eu_surge_*/timeseries/$(filename)", path)
+         push!(filenames, glob_results...)
+      end
    end
+   
+   map = []
    for filename = filenames
-      @info filename
-      push!(map, NetCDF.open(filename))
+        @info filename
+        push!(map, NetCDF.open(filename))
    end
    return map
 end
@@ -64,11 +53,21 @@ load_nc_info.
 function load_dflow_grid(map, nmin=50, spherical=true)
    interp = Interpolator()
    println("compute index:")
+   map_names = []
    for i = 1:length(map)
+      # only load the grid with a certain filename once
+      map_name = splitpath(map[i].name)[end]
+      if in(map_name, map_names)
+         break
+      else
+         push!(map_names, map_name)
+      end
       if haskey(map[i].vars, "NetElemNode") # Old FM variable name
          edges_temp = map[i].vars["NetElemNode"][:,:]
       elseif haskey(map[i].vars, "mesh2d_face_nodes") # New FM variable name
 	     edges_temp = map[i].vars["mesh2d_face_nodes"][:,:]
+      elseif haskey(map[i].vars, "Mesh_face_nodes") # FEWS variable name
+         edges_temp = map[i].vars["Mesh_face_nodes"][:,:]
       else
          error("Variable 'mesh2d_face_nodes' (or similar) is missing in D-Flow FM file")
       end
@@ -78,6 +77,9 @@ function load_dflow_grid(map, nmin=50, spherical=true)
       elseif haskey(map[i].vars, "mesh2d_node_x") # New FM variable names
          xnodes_temp = map[i].vars["mesh2d_node_x"][:]
          ynodes_temp = map[i].vars["mesh2d_node_y"][:]
+      elseif haskey(map[i].vars, "Mesh_node_x") # FEWS variable name
+	      xnodes_temp = map[i].vars["Mesh_node_x"][:]
+         ynodes_temp = map[i].vars["Mesh_node_y"][:]
       else
          error("Variable 'mesh2d_node_x' (or similar) is missing in D-Flow FM file")
       end
@@ -105,7 +107,7 @@ end
    waterlevel = load_nc_map_slice(map,"s1",1)
 Load data for a time-dependent variable for a specific time and for all domains.
 """
-function load_nc_map_slice(map, varname, itime, layer_index=-1, domainnr = 0)
+function load_nc_map_slice(map, varname, itime, sigma_layer_index=-1, domainnr = 0)
    result = []
    domainnr != 0 || (domainnr = 1:length(map))
    for i in domainnr
@@ -113,10 +115,9 @@ function load_nc_map_slice(map, varname, itime, layer_index=-1, domainnr = 0)
       if ndims(map[i][varname]) == 2
          push!(result, map[i][varname][:,itime])
       elseif ndims(map[i][varname]) == 3
-         if layer_index > 0
+         if sigma_layer_index > 0
             # if sigma_layer_index <= size(map[i][varname])[1]
-               @show size(map[i][varname])
-               push!(result, map[i][varname][layer_index,:,itime])
+               push!(result, map[i][varname][sigma_layer_index,:,itime])
             # else
             #    throw(BoundsError(map[i][varname], sigma_layer_index))
             # end
@@ -127,90 +128,26 @@ function load_nc_map_slice(map, varname, itime, layer_index=-1, domainnr = 0)
       else
          throw(ArgumentError("load_nc_map_slice has only supports 2/3 dimensions"))
       end
+      if i == domainnr
+         if haskey(map[i][varname].atts, "scale_factor")
+            scaling = map[i][varname].atts["scale_factor"]
+         else
+            scaling = 1.0
+         end
+         if haskey(map[i][varname].atts, "add_offset")
+            offset = map[i][varname].atts["add_offset"]
+            if offset > 0
+               error("Fix is needed for add_offset > 0.")
+            end
+         end
+         if !isempty(result)
+            result .= scaling .* result
+         end
+      end
    end
    return result
 end
 
-"""
-function map_edges_to_faces_3d!(at_faces,at_edges,edge_faces,edge_type)
-Average edges around each face to get values at faces
-The function works in place, so at_faces is modified.
-edge_faces : array of size (2,nedges) with the face numbers at the ends of each edge
-edge_type  : array of size (nedges) with the type of each edge (1=internal, ...)
-"""
-function map_edges_to_faces_3d!(at_faces,at_edges,edge_faces,edge_type)
-   # at_faces: array of size (nfaces,nlayers)
-   # at_edges: array of size (nedges,nlayers)
-   nfaces=size(at_faces,1)
-   nlayers=size(at_faces,2)
-   nedges=size(at_edges,1)
-   edge_count=zeros(nfaces) # number of edges per face
-   at_faces[:,:].=0.0 #initialize
-   for i=1:size(edge_faces,2)
-       if edge_type[i]==1 # internal edge
-           for j=1:2
-               if edge_faces[j,i]>0
-                   at_faces[edge_faces[j,i],:]+=at_edges[i,:]
-                   edge_count[edge_faces[j,i]]+=1
-               end
-           end
-       end
-   end
-   for i=1:nfaces
-       if edge_count[i]>0
-           at_faces[i,:]./=edge_count[i]
-       end
-   end
-end
-
-function map_edges_to_faces_2d!(at_faces,at_edges,edge_faces,edge_type)
-   # at_faces: array of size (nfaces)
-   # at_edges: array of size (nedges)
-   nfaces=size(at_faces,1)
-   nedges=size(at_edges,1)
-   edge_count=zeros(nfaces) # number of edges per face
-   at_faces[:].=0.0 #initialize
-   for i=1:size(edge_faces,2)
-       if edge_type[i]==1 # internal edge
-           for j=1:2
-               if edge_faces[j,i]>0
-                   at_faces[edge_faces[j,i]]+=at_edges[i]
-                   edge_count[edge_faces[j,i]]+=1
-               end
-           end
-       end
-   end
-   for i=1:nfaces
-       if edge_count[i]>0
-           at_faces[i]/=edge_count[i]
-       end
-   end
-end
-
-"""
-   waterlevel = load_nc_map_slice_at_faces(map,"vicwwu",1,5)
-Load data for a time-dependent variable for a specific time and for all domains.
-Apply simple interpolation from edges to faces if needed.
-"""
-function load_nc_map_slice_at_faces(map, varname, itime, layer_index=-1, domainnr = 0)
-   fill_cache_arrays(map) # fill global cache arrays if not already done
-   # first load data at edges or faces
-   values_temp=load_nc_map_slice(map,varname,itime,layer_index,domainnr)
-   location=map[1][varname].atts["location"]
-   if location=="face" #no interpolation needed, call load_nc_map_slice directly
-      return values_temp
-   end
-   #so interpolation is needed here
-   result = []
-   domainnr != 0 || (domainnr = 1:length(map))  
-   for i in domainnr
-      nfaces=nfaces_cache[i]
-      result_part=zeros(nfaces)
-      map_edges_to_faces_2d!(result_part,values_temp[i],edge_faces_cache[i],edge_type_cache[i])
-      push!(result,result_part)
-   end
-   return result
-end
 
 """
    times=get_times(map,Dates.DateTime(2019,1,1))
@@ -224,7 +161,11 @@ function get_times(map, reftime::DateTime)
    time_relative = map[1].vars["time"]
    units = time_relative.atts["units"]
    temp = split(units, "since")
-   t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   if endswith(temp[2],".0 +0000")
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS.0 +0000") # format used in FEWS 
+   else
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS +00:00")
+   end
    dt_seconds = 1.0
    if startswith(temp[1], "seconds")
       dt_seconds = 1.0
@@ -271,7 +212,11 @@ function get_reftime(map)
    time_relative = map[1].vars["time"]
    units = time_relative.atts["units"]
    temp = split(units, "since")
-   t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   if endswith(temp[2],"0 +00:00")
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS +00:00")
+   else
+      t0 = DateTime(strip(temp[2]), "yyyy-mm-dd HH:MM:SS")
+   end
    dt_seconds = 1.0
    if startswith(temp[1], "seconds")
       dt_seconds = 1.0
@@ -313,8 +258,18 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    # dumval_cache=dumval
    # reftime_cache=reftime
    times_cache = get_times(dflow_map, reftime)
+   no_domains = length(interp.grids)
+   multiple_runs = length(dflow_map) > no_domains # multiple runs per domain available
+   if multiple_runs
+      times_cache_per_run = [get_times([dflow_map[i]], reftime) for i in 1:no_domains:length(dflow_map)]
+      dflow_map_all = dflow_map
+      dflow_map_ind = 1:no_domains
+      dflow_map = dflow_map[dflow_map_ind]
+   end
+
    # keep 3 times in memory
    time_cache = zeros(3)
+   time_cache_all_domains = zeros(3,no_domains)
    var_cache = Array{Any,1}(undef, 3)
    initialized = false
    if !haskey(dflow_map[1].vars, varname) 
@@ -326,17 +281,40 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          throw(ArgumentError("$varname is not a variable in the map"))
       end
    end
+   time_cache_all_domains = repeat(times_cache[1:3], 1, no_domains)
+   time_cache_index_all_domains = repeat([3], no_domains) # index of last cached field in list of all available times
    for ti = 1:3
-      time_cache[ti] = times_cache[ti]
       var_cache[ti] = load_nc_map_slice(dflow_map, varname, ti)
    end
-   time_cache_index = 3 # index of last cached field in list of all available times
-   (debuglevel > 4) && println("Initial cache index=$(time_cache_index) ")
+   (debuglevel > 4) && println("Initial cache index=$(time_cache_index_all_domains[1]) ")
    """
        update_cache_forwards(t)
        Refresh the cached fields in the forwards time directions if needed.
    """
-   function update_cache_forwards(t)
+   function update_cache_forwards(t, domainnr)
+      time_cache = time_cache_all_domains[:, domainnr]
+      time_cache_index = time_cache_index_all_domains[domainnr]
+
+      # First, update dflow_map and refresh cache
+      if multiple_runs
+         run_ind_needed = findlast([(t >= times[1]) && (t <= times[end]) for times in times_cache_per_run])
+         if !isnothing(run_ind_needed)
+            dflow_map_ind_needed = ((run_ind_needed-1)*no_domains+1) : (run_ind_needed*no_domains)
+            if dflow_map_ind_needed != dflow_map_ind # update of dflow_map needed (e.g. using run02/run_0000_map.nc instead of run01/run_0000_map.nc)
+               (debuglevel >= 1) && println("t = $(t) - Update '$(varname)'-data using: ../$(joinpath(splitpath(dflow_map_all[dflow_map_ind_needed[domainnr]].name)[end-2:end]...))")
+               dflow_map_ind = dflow_map_ind_needed
+               dflow_map = dflow_map_all[dflow_map_ind]
+               times_cache = times_cache_per_run[run_ind_needed]
+               for ti = 1:3
+                  time_cache[ti] = times_cache[ti]
+                  var_cache[ti][domainnr] = load_nc_map_slice(dflow_map, varname, ti, -1, domainnr)[1]
+               end
+               time_cache_index = 3 # index of last cached field in list of all available times
+            end
+         end
+      end
+
+      # Next, update cache of this dflow_map 
       if (t >= time_cache[1]) && (t <= time_cache[3])
          (debuglevel >= 2) && println("cache is okay")
       elseif t > times_cache[end]
@@ -346,26 +324,31 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
          time_cache[1] = time_cache[2]
          time_cache[2] = time_cache[3]
          time_cache[3] = times_cache[time_cache_index + 1]
-         var_cache[1] = var_cache[2]
-         var_cache[2] = var_cache[3]
-         var_cache[3] = load_nc_map_slice(dflow_map, varname, time_cache_index + 1)
+         var_cache[1][domainnr] = var_cache[2][domainnr]
+         var_cache[2][domainnr] = var_cache[3][domainnr]
+         var_cache[3][domainnr] = load_nc_map_slice(dflow_map, varname, time_cache_index + 1, -1, domainnr)[1]
          time_cache_index += 1
       elseif t < times_cache[1]
          error("Trying to access before first map t=$(t) < $(times_cache[1])")
       else # complete refresh of cache
          (debuglevel >= 2) && println("refresh cache")
          ti = findfirst(tt -> tt > t, times_cache)
+         (ti != length(times_cache)) || (ti = ti - 1)
+         (ti != 1) || (ti = ti + 1)
          (debuglevel >= 4) && println("ti=$(ti), t=$(t)")
          (debuglevel >= 4) && println("$(times_cache)")
          time_cache[1] = times_cache[ti - 1]
          time_cache[2] = times_cache[ti]
          time_cache[3] = times_cache[ti + 1]
-         var_cache[1] = load_nc_map_slice(dflow_map, varname, ti - 1)
-         var_cache[2] = load_nc_map_slice(dflow_map, varname, ti)
-         var_cache[3] = load_nc_map_slice(dflow_map, varname, ti + 1)
+         var_cache[1][domainnr] = load_nc_map_slice(dflow_map, varname, ti - 1, -1, domainnr)[1]
+         var_cache[2][domainnr] = load_nc_map_slice(dflow_map, varname, ti    , -1, domainnr)[1]
+         var_cache[3][domainnr] = load_nc_map_slice(dflow_map, varname, ti + 1, -1, domainnr)[1]
          time_cache_index = ti + 1
       end
       (debuglevel >= 4) && println("$(time_cache_index) $(time_cache[1]) $(time_cache[2]) $(time_cache[3]) ")
+
+      time_cache_all_domains[:, domainnr] = time_cache
+      time_cache_index_all_domains[domainnr] = time_cache_index
    end
 
    """
@@ -425,8 +408,9 @@ function initialize_interpolation(dflow_map, interp::Interpolator, varname, reft
    # flow in x direction (for now has to be called u)
    function f(x, y, z, t)
       ind = find_index(interp, x, y)
+      if ind[1] == -1; return dumval; end
       if cache_direction == :forwards
-         update_cache_forwards(t)
+         update_cache_forwards(t, ind[1])
       elseif cache_direction == :backwards
          update_cache_backwards(t)
       end
