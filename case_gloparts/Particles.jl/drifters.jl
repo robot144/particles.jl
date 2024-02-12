@@ -121,13 +121,13 @@ end
 
 # create u and v functions for flowdata
 if lowercase(d["current_filetype"]) == "cmems"
-    cmems_u = CmemsData(current_dir, d["current_x_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
-    cmems_v = CmemsData(current_dir, d["current_y_filename"]; lon = d["current_x_var"], lat = d["current_y_var"])
+    cmems_u = CmemsData(current_dir, d["current_x_filename"]; lon = d["current_x_var"], lat = d["current_y_var"], reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
+    cmems_v = CmemsData(current_dir, d["current_y_filename"]; lon = d["current_x_var"], lat = d["current_y_var"], reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
     t0 = d["reftime"]
     u = initialize_interpolation(cmems_u, d["current_ucx_var"], t0, 0.0)  # water velocity x-dir
     v = initialize_interpolation(cmems_v, d["current_ucy_var"], t0, 0.0)  # water velocity y-dir
 elseif lowercase(d["current_filetype"]) == "delft3d-fm"
-    dflow_map = load_nc_info(current_dir, d["current_filename"])
+    dflow_map = load_nc_info(current_dir, d["current_filename"]; reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
     const interp = load_dflow_grid(dflow_map, 50, true)
     u = initialize_interpolation(dflow_map, interp, d["current_ucx_var"], d["reftime"], 0.0, d["time_direction"]);
     v = initialize_interpolation(dflow_map, interp, d["current_ucy_var"], d["reftime"], 0.0, d["time_direction"]);
@@ -141,7 +141,7 @@ end
 # create u and v functions for SECOND flowdata
 if haskey(d, "current2_filetype") 
     if lowercase(d["current2_filetype"]) == "delft3d-fm"
-        dflow_map = load_nc_info(d["current2_dir"], d["current2_filename"])
+        dflow_map = load_nc_info(d["current2_dir"], d["current2_filename"]; reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
         const interp = load_dflow_grid(dflow_map, 50, true)
         u2 = initialize_interpolation(dflow_map, interp, d["current2_ucx_var"], d["reftime"], 0.0, d["time_direction"]);
         v2 = initialize_interpolation(dflow_map, interp, d["current2_ucy_var"], d["reftime"], 0.0, d["time_direction"]);
@@ -184,8 +184,8 @@ end
 # create u_wind and v_wind
 if lowercase(d["wind_filetype"]) == "gfs"
     # wind data from gfs
-    gfs_u = GFSData(d["wind_dir"], d["wind_x_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
-    gfs_v = GFSData(d["wind_dir"], d["wind_y_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"])
+    gfs_u = GFSData(d["wind_dir"], d["wind_x_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"], reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
+    gfs_v = GFSData(d["wind_dir"], d["wind_y_filename"]; lon = d["wind_x_var"], lat = d["wind_y_var"], reftime=d["reftime"], tstart=d["tstart"], tend=d["tend"])
     t0 = d["reftime"]
     if !haskey(d,"wind_x_wrap") 
         if all(d["x"] .>= -180.0 * d["x"] .<= 180.0) && all(d["y"] .>= -90.0 * d["y"] .<= 90.0) && all(gfs_u.grid.xnodes .>= 0.0 * gfs_u.grid.xnodes .<= 360.0)
@@ -358,3 +358,45 @@ end
 d["f"] = f!
 
 run_simulation(d)
+
+if d["write_maps"] && haskey(d, "npartpersource") && d["npartpersource"] > 1
+    import NetCDF
+    using NetCDF
+    import Statistics
+    using Statistics
+    nsources = d["nsources"]
+    npartpersource = d["npartpersource"]
+
+    fullfile = joinpath(d["write_maps_dir"], d["write_maps_filename"])
+    file = NetCDF.open(fullfile)
+    gatts = file.gatts
+    time = ncread(fullfile, "time")
+    ntimes = length(time)
+    time_atts = file["time"].atts
+    finalize(file)
+    
+    fullfile_mean = joinpath(d["write_maps_dir"], "source-averaged_" * d["write_maps_filename"])
+    if isfile(fullfile_mean)
+        println("Source-averaged output file exists. Removing file $(fullfile_mean)")
+        rm(fullfile_mean)
+    end
+    nc = NetCDF.create(fullfile_mean, gatts = gatts, mode = NC_NETCDF4)
+
+    for varname in keys(file.vars)
+        dimnames = [file[varname].dim[i].name for i = 1:file[varname].ndim]
+        if "time" in dimnames && "particles" in dimnames
+            data = ncread(fullfile, varname)
+            nccreate(fullfile_mean, varname, "time", time, "sources", collect(1:1:nsources))
+            data_mean = zeros(ntimes, nsources)
+            for srci = 1:nsources
+                ind1 = (srci - 1) * npartpersource + 1
+                ind2 = srci * npartpersource
+                data_mean[:,srci] = mean(data[:,ind1:ind2], dims = 2) #todo: take nanmean or skipmissing to avoid mean([1 2 NaN/missing 5]) to become NaN
+            end
+            ncwrite(data_mean, fullfile_mean, varname)
+            ncputatt(fullfile_mean, varname, file[varname].atts)
+        end
+    end
+    ncputatt(fullfile_mean, "time", time_atts)
+    finalize(fullfile_mean)
+end

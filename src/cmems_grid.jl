@@ -14,7 +14,6 @@
 
 using NetCDF
 using Dates
-using Glob
 
 debuglevel = 1 #0-nothing, larger more output
 
@@ -28,28 +27,13 @@ mutable struct CmemsData
     """
     Constructor
     cmems_data  = CmemsData(".", "my_cmems_file.nc")
-    cmems_datas = CmemsData("data/2022", r"07/CMEMS/my_cmems_file_part.+.nc") # using Regex
-    cmems_datas = CmemsData("data/2022",  "*/CMEMS/my_cmems_file_part*.nc")   # using Glob (* = wildcard)
     """
     function CmemsData(path, filename; lon = "longitude", lat = "latitude")
-        map = []
-        if isa(filename, Regex)
-            filenames = filter(x -> ~isnothing(match(filename, x)), readdir(path))
-            filenames = [joinpath(path, filename) for filename = filenames]
-        elseif occursin("*", filename)
-            filenames = glob(filename, path)
-        else
-            filenames = [joinpath(path, filename)]
-        end
-        for filename = filenames
-            file = NetCDF.open(filename)
-            x = collect(file.vars[lon])
-            y = collect(file.vars[lat])
-            grid = CartesianXYGrid(x, y, true)
-            push!(map, new(file, grid))
-        end
-        length(map) != 1 || (map = map[1]) # backward compatibility
-        return map
+        file = NetCDF.open(joinpath(path, filename))
+        x = collect(file.vars[lon])
+        y = collect(file.vars[lat])
+        grid = CartesianXYGrid(x, y, true)
+        return new(file, grid)
     end
 end
 
@@ -63,28 +47,13 @@ mutable struct GFSData
     """
     Constructor
     gfs_data  = GFSData(".","my_gfs_file.nc")
-    gfs_datas = GFSData("data/2022", r"07/CMEMS/my_gfs_file_part.+.nc") # using Regex
-    gfs_datas = GFSData("data/2022",  "*/CMEMS/my_gfs_file_part*.nc")   # using Glob (* = wildcard)
     """
     function GFSData(path, filename; lon = "x", lat = "y")
-        map = []
-        if isa(filename, Regex)
-            filenames = filter(x -> ~isnothing(match(filename, x)), readdir(path))
-            filenames = [joinpath(path, filename) for filename = filenames]
-        elseif occursin("*", filename)
-            filenames = glob(filename, path)
-        else
-            filenames = [joinpath(path, filename)]
-        end
-        for filename = filenames
-            file = NetCDF.open(filename)
-            x = collect(file.vars[lon])
-            y = collect(file.vars[lat])
-            grid = CartesianXYGrid(x, y, true)
-            push!(map, new(file, grid))
-        end
-        length(map) != 1 || (map = map[1]) # backward compatibility
-        return map
+        file = NetCDF.open(filename)
+        x = collect(file.vars[lon])
+        y = collect(file.vars[lat])
+        grid = CartesianXYGrid(x, y, true)
+        return new(file, grid)
     end
 end
 
@@ -193,54 +162,27 @@ end
 p = initialize_interpolation(cmems,"msl",t0)
 Create an interpolation function p(x,y,z,t)
 """
-function initialize_interpolation(data, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards; wrap = false)
-    !isa(data, CmemsData) || (data = [data]) # to allow for looping over an array of CmemsData
-    !isa(data, GFSData) || (data = [data]) # to allow for looping over an array of GFSData
-
-    times_per_file = [get_times(data[i], reftime) for i in 1:length(data)]
-
-    function get_xyt(data, data_ind)
-        times = times_per_file[data_ind]
-        values = data[data_ind].file.vars[varname] #TODO more checks
-        missing_value = values.atts["_FillValue"]
-        if haskey(values.atts, "scale_factor")
-            scaling = values.atts["scale_factor"]
-        else
-            scaling = 1.0
-        end
-        if haskey(values.atts, "add_offset")
-            offset = values.atts["add_offset"]
-        else
-            offset = 0.0
-        end
-        xyt = CartesianXYTGrid(data[data_ind].grid, times, values, varname, missing_value, scaling, offset, cache_direction)
-        return xyt
+function initialize_interpolation(data::CmemsData, varname::String, reftime::DateTime, dummy = 0.0, cache_direction::Symbol = :forwards; wrap = false)
+    times = get_times(data, reftime)
+    values = data.file.vars[varname] #TODO more checks
+    missing_value = values.atts["_FillValue"]
+    if haskey(values.atts, "scale_factor")
+        scaling = values.atts["scale_factor"]
+    else
+        scaling = 1.0
     end
-
-    xyts = Array{Any,1}(undef, length(data))
-    function update_xyt(x,y,t)
-        intime = [(t >= times[1]) && (t <= times[end]) for times in times_per_file]
-        inspace = [in_bbox(data[i].grid,x,y) for i in 1:length(data)]
-        data_ind_needed = findlast((intime .* inspace))
-        if isnothing(data_ind_needed)
-            data_ind_needed = 1 # just continue with first map and get an error-message during the interpolation
-        end
-        if isassigned(xyts, data_ind_needed)
-            (debuglevel >= 2) && println("data is already cached")
-        else # load additional xyt
-            (debuglevel >= 1) && println("t = $(t) - Reading data from file: ../$(joinpath(splitpath(data[data_ind_needed].file.name)[end-2:end]...))")
-            xyts[data_ind_needed] = get_xyt(data, data_ind_needed)
-        end
-        xyt = xyts[data_ind_needed]
-        return xyt
+    if haskey(values.atts, "add_offset")
+        offset = values.atts["add_offset"]
+    else
+        offset = 0.0
     end
-
+    xyt = CartesianXYTGrid(data.grid, times, values, varname, missing_value, scaling, offset, cache_direction)
+   
     function f(x, y, z, t)
         # GFS Grid is 0:360 instead of -180:180
         if wrap && (x < 0)
             x += 360
         end
-        xyt = update_xyt(x,y,t)
         value = interpolate(xyt, x, y, t, dummy)
         return value
     end

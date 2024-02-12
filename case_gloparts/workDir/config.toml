@@ -1,0 +1,55 @@
+id = 1                                              # label particles with id per source, like 1 or [1, 2]
+x = 1.24                                            # longitude like -69.0 or [-69.0, 70.0]
+y = 51.68                                           # latitude like 35.0 or [35.0, 36.0]
+									                
+npartpersource = 10                    # number of particles per source
+radius = 0.01                          # initial spread in degrees
+reftime = 2023-09-20T00:00:00Z                            # reference time for simulation - default tstart=0
+tstart = 0                                          # start time in seconds since reftime
+tend = 259200 # 259200=3 days
+dt = 10                                             # timstep in seconds
+
+# surface currents
+current_filetype="cmems"                             # valid types are "cmems", "delft3d-fm", "zero"
+current_dir = "/opt/fews/datacollect/archive_data"
+current_x_filename = "CMEMS_currents_u_fc_*.nc"     # separate files for u=east and v=north dirs
+current_y_filename = "CMEMS_currents_v_fc_*.nc"     # Wildcards or regex can be used (e.g. "currents_v_*.nc" or "currents_v_.+.nc") 
+current_x_var = "x"                                 # variable for x-coordinate (default "longitude")
+current_y_var = "y"                                 # variable for y-coordinate (default "latitude")
+current_ucx_var = "uo"                              # variable for flow velocity in x/longitude-direction (default for CMEMS: "uo")
+current_ucy_var = "vo"                              # variable for flow velocity in y/latitude-direction (default for CMEMS: "vo")
+
+current2_filetype = "delft3d-fm"                    # valid types are "cmems", "delft3d-fm", "zero"
+current2_dir = "/opt/fews/datacollect/archive_data"
+current2_filename = "DflowFM_gtsmv4_grid_*_fc.nc"   # Wildcards or regex can be used (e.g. "currents_v_*.nc" or "currents_v_.+.nc")
+current2_ucx_var = "current_u"                      # variable for currents in x-coordinate (default "mesh2d_ucx", fews export "currents_u")
+current2_ucy_var = "current_v"                      # variable for currents in y-coordinate (default "mesh2d_ucy", fews export "currents_v")
+
+# winds
+wind_filetype="gfs"                                 # valid types are "gfs", "delft3d-fm", "zero"
+wind_dir = "/opt/fews/datacollect/archive_data"
+wind_filename = "gfs025_fc.nc"                      # single for u=east and v=north dirs
+wind_x_var = "x"                                    # variable for x-coordinate (default "x")
+wind_y_var = "y"                                    # variable for y-coordinate (default "y")
+wind_x_wrap = false                                 # shift longitudes from [0 360] to [-180 180] (default false), set to true when using together with cmems [-180, 180]
+
+
+# Defaults
+
+# Model
+K = 5.0                              # Eddy diffusion m2/s
+leeway_coeff = 0.0144                  # 0.016 * 0.9
+                
+
+# write particle tracks to netcdf
+write_maps = true                      # write to netcdf true or false
+write_maps_dir = "../workDir/netcdf_output"       # relative or absolute folder name
+write_maps_filename = "output.nc" # name of file 
+write_maps_interval = 3600               # write output at tstart:interval:tend in seconds 
+
+# write pictures to disk
+plot_maps = false                       # write plots true or false
+plot_maps_folder = "../workDir/images_output"   # relative or absolute folder name
+plot_maps_interval = 3600                # plot maps at tstart:interval:tend in seconds 
+#plot_background_source = "gebco"       # "emodnet-bathymetry", "open-streetmap" or "gebco"
+#bbox = [-90.0,20.0,-10.0,50.0]         # spatial extent for map plots
