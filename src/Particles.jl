@@ -3,6 +3,7 @@ module Particles
 
 using NetCDF
 using Dates
+using TOML
 
 include("1d_interpolation.jl")  # support for vertical interpolation
 
