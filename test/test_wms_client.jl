@@ -43,7 +43,7 @@ function test3()
    height=1000
    #Plots.default(:size,[width,height])
    gebco_server=WmsServer("gebco")
-   @test gebco_server.host=="www.gebco.net"
+   @test gebco_server.host=="wms.gebco.net"
    boundbox=[-180.0,-90.0,180.0,90.0]
    img=get_map(gebco_server,boundbox,width,height)
    @test size(img)==(1000, 2000)
