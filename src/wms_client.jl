@@ -46,7 +46,7 @@ KnownServers["open-streetmap"]=osm
 # polar view  https://www.gebco.net/data_and_products/gebco_web_services/north_polar_view_wms/mapserv?
 gebco=Dict("scheme" => "https", 
 	 "host" => "wms.gebco.net",
-	 "path" => "mapserv",
+	 "path" => "/mapserv",
 	 "service" => "WMS",
 	 "version" => "1.1.1",
 	 "layers" => ["GEBCO_LATEST"],
