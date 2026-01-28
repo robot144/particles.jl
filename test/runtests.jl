@@ -20,9 +20,9 @@ end
       include("test_cartesian_grid.jl")
    end
       
-   # @testset "Background images over WMS" begin
-   #    include("test_wms_client.jl")
-   # end
+   @testset "Background images over WMS" begin
+      include("test_wms_client.jl")
+   end
 
    @testset "Read and interpolate map-files from Delft3D-FM also called Dflow (operational version)" begin
       include("test_dflow.jl")
